@@ -19,19 +19,9 @@ export default function NavBar({ activeTab, setActiveTab }) {
         <span>Players</span>
       </button>
 
-      <button onClick={() => setActiveTab('upload')} className={getBtnStyle('upload')}>
-        <span className="text-xl">photos</span>
-        <span>Snap</span>
-      </button>
-
       <button onClick={() => setActiveTab('notes')} className={getBtnStyle('notes')}>
         <span className="text-xl">notes</span>
         <span>Notes</span>
-      </button>
-
-      <button onClick={() => setActiveTab('calc')} className={getBtnStyle('calc')}>
-        <span className="text-xl">calculator</span>
-        <span>Calc</span>
       </button>
     </nav>
   );
