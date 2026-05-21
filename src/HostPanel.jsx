@@ -1,0 +1,143 @@
+import { useEffect, useState } from 'react';
+import { supabase } from './supabaseClient';
+
+export default function HostPanel() {
+  const [players, setPlayers] = useState([]);
+  const [evidenceList, setEvidenceList] = useState([]);
+  
+  // NEW BROADCAST STATES
+  const [prewrittenList, setPrewrittenList] = useState([]);
+  const [customText, setCustomText] = useState('');
+  const [currentLiveAlert, setCurrentLiveAlert] = useState('');
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    const { data: p } = await supabase.from('players').select('*');
+    const { data: e } = await supabase.from('evidence').select('*').order('id', { ascending: true });
+    const { data: b } = await supabase.from('prewritten_broadcasts').select('*').order('id', { ascending: true });
+    const { data: active } = await supabase.from('active_broadcast').select('message_text').eq('id', 1).maybeSingle();
+    
+    if (p) setPlayers(p);
+    if (e) setEvidenceList(e);
+    if (b) setPrewrittenList(b);
+    if (active) setCurrentLiveAlert(active.message_text);
+  };
+
+  // Trigger updating the live database cell
+  const pushBroadcast = async (text) => {
+    if (!text.trim()) return;
+    await supabase.from('active_broadcast').update({ message_text: text.trim() }).eq('id', 1);
+    setCurrentLiveAlert(text.trim());
+    setCustomText(''); // Wipe text input if custom was used
+  };
+
+  const toggleLife = async (id, currentStatus) => {
+    await supabase.from('players').update({ is_alive: !currentStatus }).eq('id', id);
+    fetchData();
+  };
+
+  const toggleEvidence = async (id, currentStatus) => {
+    await supabase.from('evidence').update({ is_discovered: !currentStatus }).eq('id', id);
+    fetchData();
+  };
+
+  return (
+    <div className="space-y-8 pb-12">
+      <div>
+        <h1 className="text-2xl font-black text-red-500 uppercase tracking-widest">👑 Game Master Control</h1>
+        <p className="text-xs text-slate-500">Live overwrite deck for mansion communications.</p>
+      </div>
+
+      {/* NEW FEATURE: GLOBAL BROADCAST DESK */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Mansion Public Address System</h2>
+        
+        <div className="bg-slate-950 p-3 rounded-lg border border-slate-850 text-xs text-slate-400">
+          <span className="font-mono text-amber-500 font-bold uppercase block mb-1">Live Feed Overlap:</span>
+          "{currentLiveAlert}"
+        </div>
+
+        {/* 1. Custom Real-Time Input Text Field */}
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase font-bold text-slate-500 block">Deploy Real-Time Custom Message</label>
+          <div className="flex gap-2">
+            <input 
+              type="text"
+              placeholder="Type a custom announcement..."
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+              className="flex-1 p-2 bg-slate-950 border border-slate-800 text-xs rounded-lg text-slate-200 focus:outline-none focus:border-red-500"
+            />
+            <button 
+              onClick={() => pushBroadcast(customText)}
+              className="bg-red-600 hover:bg-red-700 font-bold px-4 rounded-lg text-xs uppercase tracking-wider"
+            >
+              Transmit
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Pre-written Click-to-Send Cards Grid */}
+        <div className="space-y-2 pt-2 border-t border-slate-850">
+          <label className="text-[10px] uppercase font-bold text-slate-500 block">Pre-Scripted Event Triggers</label>
+          <div className="grid grid-cols-2 gap-2">
+            {prewrittenList.map((script) => (
+              <button
+                key={script.id}
+                onClick={() => pushBroadcast(script.script_text)}
+                className="bg-slate-950 hover:bg-slate-850 p-2.5 rounded-lg border border-slate-800 text-left transition text-slate-300"
+              >
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-tight">{script.title}</p>
+                <p className="text-[9px] text-slate-500 truncate mt-0.5">{script.script_text}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* PLAYER ROSTER STATUS CONTROL */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Player Roster Status</h2>
+        <div className="space-y-2">
+          {players.map(p => (
+            <div key={p.id} className="flex justify-between items-center bg-slate-950 p-2.5 rounded-lg border border-slate-900">
+              <span className="text-xs font-bold">{p.character_name} ({p.role})</span>
+              <button 
+                onClick={() => toggleLife(p.id, p.is_alive)}
+                className={`text-[10px] font-bold uppercase px-3 py-1 rounded-md border ${
+                  p.is_alive ? 'bg-green-950 border-green-800 text-green-400' : 'bg-red-950 border-red-800 text-red-400'
+                }`}
+              >
+                {p.is_alive ? 'Alive 🟢' : 'Dead 💀'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* EVIDENCE DROPS CONTROL */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Uncover Evidence Links</h2>
+        <div className="grid grid-cols-1 gap-2">
+          {evidenceList.map(e => (
+            <div key={e.id} className="flex justify-between items-center bg-slate-950 p-2.5 rounded-lg border border-slate-900">
+              <span className="text-xs text-slate-300 font-mono">{e.id}. {e.evidence_name}</span>
+              <button 
+                onClick={() => toggleEvidence(e.id, e.is_discovered)}
+                className={`text-[10px] font-bold uppercase px-3 py-1 rounded-md ${
+                  e.is_discovered ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500 border border-slate-700'
+                }`}
+              >
+                {e.is_discovered ? 'Discovered' : 'Hidden'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
