@@ -28,12 +28,13 @@ export default function EvidencePage({ currentCharacter }) {
 
   // 2. REVEAL HINT LOGIC
   const handleRevealHint = async (evidenceId, hintNum, hintText) => {
-    if (hintsUsed >= 6) {
+    if (hintsUsed >= 6 && !currentCharacter.is_host) {
       alert("⚠️ Maximum hint limit reached! Your detective team must solve the rest alone.");
       return;
     }
 
     const nextHintCount = hintsUsed + 1;
+
     setHintsUsed(nextHintCount);
     setActiveHint(hintText);
 
@@ -41,7 +42,7 @@ export default function EvidencePage({ currentCharacter }) {
     await supabase.from('players').update({ hints_used: nextHintCount }).eq('id', currentCharacter.id);
   };
 
-  const isDetective = currentCharacter.role !== 'murderer';
+  const isDetective = currentCharacter.role === 'detective';
 
   return (
     <div className="space-y-6">

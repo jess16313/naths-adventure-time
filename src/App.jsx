@@ -5,6 +5,12 @@ import AttendeeList from './attendees';
 import NotesPage from './notes';
 import EvidencePage from './Evidence';
 import HostPanel from './HostPanel';
+import VotingBooth from './Vote';
+import MurdererDash from './MurderDash';
+import AfterlifePage from './Afterlife';
+import AccompliceBox from './Accomplice';
+import ImposterDash from './Imposter';
+import { LivingMediumView, DeadMediumView } from './Medium';
 
 export default function App() { 
   const [character, setCharacter] = useState(null); 
@@ -133,17 +139,33 @@ useEffect(() => {
                   Role: {character.role}
                 </span>
               </div> 
-            </div> 
+            </div>
+            {character.role === 'murderer' && character.is_alive && (
+              <div className="mt-6 pt-6 border-t border-slate-800">
+                <MurdererDash currentCharacter={character} />
+              </div>
+            )} 
+            {character.role === 'accomplice' && character.is_alive && (
+              <div className="mt-6 pt-6 border-t border-slate-800">
+                <AccompliceBox currentCharacter={character} />
+              </div>
+            )}
+            {character.role === 'imposter' && character.is_alive && (
+              <div className="mt-6 pt-6 border-t border-slate-800">
+                <ImposterDash currentCharacter={character} />
+              </div>
+            )}
           </div> 
         )} 
 
         {/* SUB-PAGES */} 
-        {activeTab === 'notes' && <NotesPage currentCharacter={character} />} 
-        {activeTab === 'votes' && <div className="text-center mt-10 text-slate-500"> Voting Booth Container</div>} 
-        {activeTab === 'evidence' && <EvidencePage currentCharacter={character} />} 
+        {activeTab === 'notes' && character.is_alive && <NotesPage currentCharacter={character} />}
+        {activeTab === 'evidence' && character.is_alive && <EvidencePage currentCharacter={character} />}
+        {activeTab === 'votes' && character.is_alive && <VotingBooth currentCharacter={character} />}
+        {activeTab === 'afterlife' && !character.is_alive && (<AfterlifePage currentCharacter={character} />)}
         {activeTab === 'attendees' && <AttendeeList currentCharacter={character}/>} 
         {activeTab === 'host-panel' && character.role === 'host' && <HostPanel />}
-      </main> 
+         </main> 
       <NavBar activeTab={activeTab} setActiveTab={setActiveTab} currentCharacter={character} />
     </div> 
   ); 

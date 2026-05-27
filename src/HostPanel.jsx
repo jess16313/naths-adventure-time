@@ -4,11 +4,13 @@ import { supabase } from './supabaseClient';
 export default function HostPanel() {
   const [players, setPlayers] = useState([]);
   const [evidenceList, setEvidenceList] = useState([]);
-  
-  // NEW BROADCAST STATES
   const [prewrittenList, setPrewrittenList] = useState([]);
   const [customText, setCustomText] = useState('');
   const [currentLiveAlert, setCurrentLiveAlert] = useState('');
+
+  // 🛠️ NEW STORY OVERWRITE STATES
+  const [storyInput, setStoryInput] = useState('');
+  const [liveStoryPreview, setLiveStoryPreview] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -20,18 +22,40 @@ export default function HostPanel() {
     const { data: b } = await supabase.from('prewritten_broadcasts').select('*').order('id', { ascending: true });
     const { data: active } = await supabase.from('active_broadcast').select('message_text').eq('id', 1).maybeSingle();
     
+    // Fetch current active story briefing
+    const { data: currentStory } = await supabase.from('campaign_story').select('story_blurb').eq('id', 1).maybeSingle();
+
     if (p) setPlayers(p);
     if (e) setEvidenceList(e);
     if (b) setPrewrittenList(b);
     if (active) setCurrentLiveAlert(active.message_text);
+    if (currentStory) {
+      setLiveStoryPreview(currentStory.story_blurb);
+      setStoryInput(currentStory.story_blurb); // Pre-fill text area with current text so you don't retype it all
+    }
   };
 
-  // Trigger updating the live database cell
   const pushBroadcast = async (text) => {
     if (!text.trim()) return;
     await supabase.from('active_broadcast').update({ message_text: text.trim() }).eq('id', 1);
     setCurrentLiveAlert(text.trim());
-    setCustomText(''); // Wipe text input if custom was used
+    setCustomText('');
+  };
+
+  // 🛠️ NEW STORY UPDATE TRANSMITTER
+  const handleUpdateStory = async () => {
+    if (!storyInput.trim()) return;
+    const { error } = await supabase
+      .from('campaign_story')
+      .update({ story_blurb: storyInput.trim() })
+      .eq('id', 1);
+
+    if (!error) {
+      setLiveStoryPreview(storyInput.trim());
+      alert("📜 Dossier briefing records rewritten successfully across all player terminals!");
+    } else {
+      alert("Error overwriting story logs.");
+    }
   };
 
   const toggleLife = async (id, currentStatus) => {
@@ -51,7 +75,7 @@ export default function HostPanel() {
         <p className="text-xs text-slate-500">Live overwrite deck for mansion communications.</p>
       </div>
 
-      {/* NEW FEATURE: GLOBAL BROADCAST DESK */}
+      {/* GLOBAL BROADCAST DESK */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Mansion Public Address System</h2>
         
@@ -60,7 +84,6 @@ export default function HostPanel() {
           "{currentLiveAlert}"
         </div>
 
-        {/* 1. Custom Real-Time Input Text Field */}
         <div className="space-y-2">
           <label className="text-[10px] uppercase font-bold text-slate-500 block">Deploy Real-Time Custom Message</label>
           <div className="flex gap-2">
@@ -71,16 +94,12 @@ export default function HostPanel() {
               onChange={(e) => setCustomText(e.target.value)}
               className="flex-1 p-2 bg-slate-950 border border-slate-800 text-xs rounded-lg text-slate-200 focus:outline-none focus:border-red-500"
             />
-            <button 
-              onClick={() => pushBroadcast(customText)}
-              className="bg-red-600 hover:bg-red-700 font-bold px-4 rounded-lg text-xs uppercase tracking-wider"
-            >
+            <button onClick={() => pushBroadcast(customText)} className="bg-red-600 hover:bg-red-700 font-bold px-4 rounded-lg text-xs uppercase tracking-wider">
               Transmit
             </button>
           </div>
         </div>
 
-        {/* 2. Pre-written Click-to-Send Cards Grid */}
         <div className="space-y-2 pt-2 border-t border-slate-850">
           <label className="text-[10px] uppercase font-bold text-slate-500 block">Pre-Scripted Event Triggers</label>
           <div className="grid grid-cols-2 gap-2">
@@ -95,6 +114,29 @@ export default function HostPanel() {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* 🛠️ NEW FEATURE: OPERATIONAL BACKGROUND STORY OVERWRITE CARD */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Story Briefing Overwrite</h2>
+          <span className="text-[8px] font-mono text-emerald-500 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-900">Live Sync Active</span>
+        </div>
+
+        <div className="space-y-2">
+          <textarea
+            value={storyInput}
+            onChange={(e) => setStoryInput(e.target.value)}
+            placeholder="Type new plot progression text details..."
+            className="w-full h-24 p-2.5 bg-slate-950 border border-slate-850 rounded-xl text-xs text-slate-300 resize-none focus:outline-none focus:border-amber-500 leading-relaxed"
+          />
+          <button 
+            onClick={handleUpdateStory}
+            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition shadow-md"
+          >
+            Update Global Story Dossier 📜
+          </button>
         </div>
       </div>
 
@@ -140,4 +182,3 @@ export default function HostPanel() {
     </div>
   );
 }
-
