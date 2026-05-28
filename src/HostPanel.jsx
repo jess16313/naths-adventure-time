@@ -46,8 +46,8 @@ export default function HostPanel() {
           "Authorization": "os_v2_app_s7mdvycuwbf57hhnnhhkwfltetgzsf4xnefua44z5eoqmdhnlzkcdiilupui75dipumfbk2x7el6xjlirhrr2bwaebvlzwjiyqaqypy" // 👈 Paste your secret REST key here
         },
         body: JSON.stringify({
-          app_id:  "97d83ae0-54b0-4bdf-9ced-69ceab157324", // 👈 Paste your App ID here
-          included_segments: ["All Subscribed Users"], // Blasts to everyone at the party automatically!
+          app_id:  "97d83ae0-54b0-4bdf-9ced-69ceab157324", 
+          included_segments: ["All Subscribed Users"], 
           headings: { "en": "🚨 Mansion Broadcast Alert" },
           contents: { "en": text.trim() }
         })
