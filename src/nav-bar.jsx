@@ -12,13 +12,16 @@ export default function NavBar({ activeTab, setActiveTab, currentCharacter }) {
     <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around p-3 pb-6 z-40">
       
       {/* 1. Standard buttons visible to LIVING players */}
-      {isAlive && (
+      {isAlive && !isMedium && (
         <>
           <button onClick={() => setActiveTab('dashboard')} className={getBtnStyle('dashboard')}>🏠 Home</button>
           <button onClick={() => setActiveTab('attendees')} className={getBtnStyle('attendees')}>👥 Players</button>
           <button onClick={() => setActiveTab('notes')} className={getBtnStyle('notes')}>📝 Notes</button>
           <button onClick={() => setActiveTab('evidence')} className={getBtnStyle('evidence')}>🔍 Evidence</button>
           <button onClick={() => setActiveTab('votes')} className={getBtnStyle('votes')}>🗳️ Votes</button>
+          {isAlive && currentCharacter?.role === 'nurse' && (
+          <button onClick={() => setActiveTab('infirmary')} className={getBtnStyle('infirmary')}>🩺 Ward</button>
+        )}
         </>
       )}
 

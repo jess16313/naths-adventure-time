@@ -7,52 +7,71 @@ export default function AttendeeList({ currentCharacter }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null); 
   const [loading, setLoading] = useState(true);
 
+  // NEW: Track whether Evidence Item #6 has been uncovered yet
+  const [willIsFound, setWillIsFound] = useState(false);
+
   useEffect(() => {
     async function fetchData() {
-      // 1. Fetch guest list array
+      // 1. Fetch guest rosters
       const { data: guestData } = await supabase
         .from('players')
         .select('*')
         .order('character_name', { ascending: true });
 
-      // 2. Fetch the background story blurb
+      // 2. Fetch background narrative campaign
       const { data: storyData } = await supabase
         .from('campaign_story')
         .select('story_blurb')
         .eq('id', 1)
         .maybeSingle();
 
+      // 3. Check the real-time discovery log of Evidence Item 6 (Altered Will)
+      const { data: evidenceData } = await supabase
+        .from('evidence')
+        .select('is_discovered')
+        .eq('id', 6)
+        .maybeSingle();
+
       if (guestData) setPlayers(guestData);
       if (storyData) setStoryText(storyData.story_blurb);
+      if (evidenceData) setWillIsFound(evidenceData.is_discovered);
       setLoading(false);
     }
 
     fetchData();
 
-    // 3. Set up real-time listener so if the host rewrites the story, it shifts live!
-    const storySub = supabase
-      .channel('live-story-stream')
+    // 4. Live subscription updates for story progression and evidence breakthroughs
+    const liveSub = supabase
+      .channel('attendee-vault-sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'campaign_story' }, (payload) => {
         setStoryText(payload.new.story_blurb);
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'evidence' }, (payload) => {
+        if (payload.new.id === 6) {
+          setWillIsFound(payload.new.is_discovered);
+        }
+      })
       .subscribe();
 
-    return () => supabase.removeChannel(storySub);
+    return () => supabase.removeChannel(liveSub);
   }, []);
 
   if (loading) {
     return <div className="text-center mt-10 text-slate-400 animate-pulse">Loading guest logs...</div>;
   }
 
+  // Quick verification checks
+  const isGoodTeam = currentCharacter.team === 'good';
+
   return (
     <div className="space-y-6">
-      {/* HEADER BAR */}
+      {/* HEADER SECTION */}
       <div>
         <h1 className="text-2xl font-black uppercase tracking-widest text-slate-400">Guest Directory</h1>
         <p className="text-xs text-slate-500 mt-1">Tap a dossier card to view individual suspect records.</p>
       </div>
 
-      {/* GUEST CARDS GRID LIST */}
+      {/* ROSTER CARDS LIST GRID */}
       <div className="grid grid-cols-1 gap-3">
         {players.map((player) => {
           const isMe = player.id === currentCharacter.id;
@@ -86,7 +105,7 @@ export default function AttendeeList({ currentCharacter }) {
                     {isMe && <span className="bg-indigo-900 text-indigo-400 text-[9px] font-extrabold px-1 rounded uppercase">You</span>}
                   </div>
                   <p className="text-[9px] uppercase font-bold tracking-wider text-slate-500">
-                    Status: {player.is_alive ? 'Alive' : 'Deceased'}
+                    Status: {player.is_alive ? 'Active' : 'Deceased'}
                   </p>
                 </div>
               </div>
@@ -96,7 +115,7 @@ export default function AttendeeList({ currentCharacter }) {
         })}
       </div>
 
-      {/* 🛠️ NEW ADDITION: BACKGROUND STORY SECTION */}
+      {/* BACKGROUND STORY & ALIBI BLURB BOX */}
       <div className="mt-8 pt-6 border-t border-slate-800 space-y-3">
         <h2 className="text-xs font-black uppercase text-amber-500 tracking-wider font-mono">
           📜 Operational Briefing & Alibi Log
@@ -106,11 +125,12 @@ export default function AttendeeList({ currentCharacter }) {
         </div>
       </div>
 
-      {/* POP-UP BIO MODAL CONTROLLER */}
+      {/* POP-UP DOSSIER PROFILE MODAL CARDS */}
       {selectedPlayer && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end justify-center z-50 p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl relative">
             <div className="w-12 h-1 bg-slate-800 rounded-full mx-auto mb-2" />
+            
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-2xl font-black text-indigo-400">{selectedPlayer.character_name}</h3>
@@ -120,9 +140,34 @@ export default function AttendeeList({ currentCharacter }) {
               </div>
               <button onClick={() => setSelectedPlayer(null)} className="bg-slate-800 p-2 text-xs rounded-full w-8 h-8 text-slate-400">✕</button>
             </div>
-            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed max-h-48 overflow-y-auto">
+
+            {/* CHARACTER BIO DISCRIPTIONS */}
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed max-h-48 overflow-y-auto font-serif">
               {selectedPlayer.description || "No official records found on this individual..."}
             </div>
+
+            {/* 🔬 DYNAMIC REVEAL SYSTEM: FINGERPRINT PROFILE DATA COMPONENT LOCK */}
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-1">
+              <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-slate-500 block">Forensic Laboratory Logs</span>
+              <div className="text-xs font-medium">
+                {willIsFound && isGoodTeam ? (
+                  <p className="text-emerald-400 font-mono font-bold">
+                    🧬 Print Analysis: <span className="underline">{selectedPlayer.fingerprint_type}</span>
+                  </p>
+                ) : (
+                  <p className="text-slate-600 italic">
+                    🔒 Fingerprint Record: [CLASSIFIED — Altered Will Evidence Required]
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSelectedPlayer(null)}
+              className="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-xs border border-slate-700"
+            >
+              Close Roster Dossier
+            </button>
           </div>
         </div>
       )}

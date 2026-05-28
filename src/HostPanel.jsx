@@ -38,6 +38,23 @@ export default function HostPanel() {
   const pushBroadcast = async (text) => {
     if (!text.trim()) return;
     await supabase.from('active_broadcast').update({ message_text: text.trim() }).eq('id', 1);
+    try {
+      await fetch("https://onesignal.com", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Authorization": "os_v2_app_s7mdvycuwbf57hhnnhhkwfltetgzsf4xnefua44z5eoqmdhnlzkcdiilupui75dipumfbk2x7el6xjlirhrr2bwaebvlzwjiyqaqypy" // 👈 Paste your secret REST key here
+        },
+        body: JSON.stringify({
+          app_id:  "97d83ae0-54b0-4bdf-9ced-69ceab157324", // 👈 Paste your App ID here
+          included_segments: ["All Subscribed Users"], // Blasts to everyone at the party automatically!
+          headings: { "en": "🚨 Mansion Broadcast Alert" },
+          contents: { "en": text.trim() }
+        })
+      });
+    } catch (err) {
+      console.error("OneSignal push blast failed:", err);
+    }
     setCurrentLiveAlert(text.trim());
     setCustomText('');
   };
