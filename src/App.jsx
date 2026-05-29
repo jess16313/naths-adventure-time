@@ -7,7 +7,7 @@ import EvidencePage from './Evidence';
 import HostPanel from './HostPanel'; 
 import VotingBooth from './Vote'; 
 import MurdererDash from './MurderDash'; 
-import AfterlifePage from './Afterlife'; 
+import AfterlifePage from './AfterLife'; 
 import AccompliceBox from './Accomplice'; 
 import ImposterDash from './Imposter'; 
 import MediumRoom from './MediumRoom'; 
@@ -51,6 +51,11 @@ export default function App() {
           }
         });
       }
+
+      OneSignal.init({
+        appId: "97d83ae0-54b0-4bdf-9ced-69ceab157324",
+        allowLocalhostAsSecure: true 
+      })
 
       const alertSub = supabase 
         .channel('live-alerts') 
