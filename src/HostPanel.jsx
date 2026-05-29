@@ -31,7 +31,7 @@ export default function HostPanel() {
     if (active) setCurrentLiveAlert(active.message_text);
     if (currentStory) {
       setLiveStoryPreview(currentStory.story_blurb);
-      setStoryInput(currentStory.story_blurb); // Pre-fill text area with current text so you don't retype it all
+      setStoryInput(currentStory.story_blurb);
     }
   };
 
