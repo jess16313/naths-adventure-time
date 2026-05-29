@@ -176,7 +176,17 @@ export default function App() {
                 </span> 
               </div> 
             </div> 
-            
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-2 mt-4">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider">Secret Dossier & Motive</h3>
+                <span className="text-[9px] bg-indigo-950 text-indigo-400 font-mono px-2 py-0.5 rounded border border-indigo-900/30 uppercase">
+                  Classified
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 font-serif leading-relaxed italic bg-slate-950 p-4 rounded-lg border border-slate-900/50">
+                "{character.description || "Your background files are being compiled by management..."}"
+              </p>
+            </div>
             {character.role === 'imposter' && character.is_alive && ( 
               <div className="mt-6 pt-6 border-t border-slate-800"> 
                 <ImposterDash currentCharacter={character} /> 

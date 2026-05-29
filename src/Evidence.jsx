@@ -156,12 +156,39 @@ export default function EvidencePage({ currentCharacter }) {
                 {item.is_discovered ? item.evidence_name : '❓❓❓❓❓❓'}
               </h3>
             </div>
+              {item.is_discovered ? (
+                <div className="space-y-3 bg-slate-950 p-3 rounded-lg border border-slate-900">
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {item.description}
+                  </p>
+                  {item.image_url && (
+                    <div className="pt-2 border-t border-slate-900 space-y-2">
+                      <p className="text-[9px] uppercase font-black tracking-wider text-indigo-400 font-mono">
+                        📎 Case File Attachment:
+                      </p>
+                      
 
-            {item.is_discovered ? (
-              <p className="text-xs text-slate-400 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-900">
-                {item.description}
-              </p>
-            ) : (
+                      {item.image_url.match(/\.(jpeg|jpg|gif|png)$/) ? (
+                        <img 
+                          src={supabase.storage.from('evidence-files').getPublicUrl(item.image_url).data.publicUrl} 
+                          alt={item.evidence_name} 
+                          className="w-full h-32 object-cover rounded-lg border border-slate-800 shadow-inner"
+                        />
+                      ) : null}
+
+                      {/* Universal Document Download/View button for PDFs or general file extensions */}
+                      <a 
+                          href={supabase.storage.from('evidence-files').getPublicUrl(item.image_url).data.publicUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-[10px] uppercase font-bold text-slate-300 px-2.5 py-1.5 rounded-md transition"
+                        >
+                        📂 Open Full Document / Asset File
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ) : (
               <div className="space-y-2">
                 <p className="text-xs text-slate-600 italic">This evidence has not been recovered yet.</p>
                 

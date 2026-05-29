@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient';
 export default function AttendeeList({ currentCharacter }) {
   const [players, setPlayers] = useState([]);
   const [storyText, setStoryText] = useState('Gathering intelligence logs...');
-  const [selectedPlayer, setSelectedPlayer] = useState(null); 
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [willIsFound, setWillIsFound] = useState(false);
 
@@ -44,7 +44,7 @@ export default function AttendeeList({ currentCharacter }) {
       if (evidenceData) setWillIsFound(evidenceData.is_discovered);
       setLoading(false);
     }
-
+    
     fetchData();
 
     // 4. Live subscription updates for story progression, evidence, AND player metrics
@@ -58,11 +58,8 @@ export default function AttendeeList({ currentCharacter }) {
           setWillIsFound(payload.new.is_discovered);
         }
       })
-      // 🚨 CRUCIAL FIX: Listen for updates to the players table (Kills, Antidotes, Immunity)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'players' }, (payload) => {
-        refreshRoster(); // Auto-re-fetch table rows instantly when a change triggers in the cloud
-
-        // If the player currently viewed in the modal popup gets updated, refresh their data frame too
+        refreshRoster(); 
         setSelectedPlayer((current) => {
           if (current && current.id === payload.new.id) {
             return payload.new;
@@ -95,42 +92,34 @@ export default function AttendeeList({ currentCharacter }) {
         {players.map((player) => {
           const isMe = player.id === currentCharacter.id;
           return (
-            <div
-              key={player.id}
-              onClick={() => setSelectedPlayer(player)}
-              className={`p-4 rounded-xl border transition cursor-pointer flex justify-between items-center ${
-                !player.is_alive
-                  ? 'bg-red-950/20 border-red-900/50 text-slate-500 line-through' 
-                  : isMe
-                  ? 'bg-slate-900 border-indigo-500/50 text-white ring-1 ring-indigo-500/30' 
-                  : 'bg-slate-900 border-slate-800 text-white hover:border-slate-700' 
-              }`}
-            >
+            <div key={player.id} onClick={() => setSelectedPlayer(player)} className={`p-4 rounded-xl border transition cursor-pointer flex justify-between items-center ${
+              !player.is_alive ? 'bg-red-950/20 border-red-900/50 text-slate-500 line-through' : isMe ? 'bg-slate-900 border-indigo-500/50 text-white ring-1 ring-indigo-500/30' : 'bg-slate-900 border-slate-800 text-white hover:border-slate-700'
+            }`} >
               <div className="flex items-center space-x-3">
                 {player.avatar_url ? (
-                  <img 
-                    src={player.avatar_url} 
-                    alt={player.character_name} 
-                    className={`w-10 h-10 rounded-full object-cover border ${
-                      !player.is_alive ? 'border-red-900 grayscale opacity-40' : 'border-slate-700'
-                    }`}
-                  />
+                  <img src={player.avatar_url} alt={player.character_name} className={`w-10 h-10 rounded-full object-cover border ${ !player.is_alive ? 'border-red-900 grayscale opacity-40' : 'border-slate-700' }`} />
                 ) : (
                   <span className="text-xl">{!player.is_alive ? '💀' : '👤'}</span>
                 )}
                 <div>
-                  <div className="font-bold flex items-center gap-2 text-sm">
-                    {player.character_name}
-                    {isMe && <span className="bg-indigo-900 text-indigo-400 text-[9px] font-extrabold px-1 rounded uppercase">You</span>}
+                  <div className="font-bold flex items-center flex-wrap gap-x-2 gap-y-0.5 text-sm">
+                    <span>{player.character_name}</span>
                     
-                    {/* 🛡️ IMMUNITY SHIELD BADGE: Only rendered if alive, protected, and viewed by Nurse/Host */}
+                    {/* REAL NAME SUB-TEXT IN PARANTHESIS */}
+                    {player.real_name && (
+                      <span className="text-xs text-slate-500 font-normal font-sans italic">
+                        ({player.real_name})
+                      </span>
+                    )}
+                    
+                    {isMe && <span className="bg-indigo-900 text-indigo-400 text-[9px] font-extrabold px-1 rounded uppercase">You</span>}
                     {player.is_alive && player.nurse_immune && canSeeImmunity && (
                       <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-extrabold px-1 rounded uppercase tracking-wide animate-pulse">
                         🛡️ Shielded
                       </span>
                     )}
                   </div>
-                  <p className="text-[9px] uppercase font-bold tracking-wider text-slate-500">
+                  <p className="text-[9px] uppercase font-bold tracking-wider text-slate-500 mt-0.5">
                     Status: {player.is_alive ? 'Active' : 'Deceased'}
                   </p>
                 </div>
@@ -141,16 +130,6 @@ export default function AttendeeList({ currentCharacter }) {
         })}
       </div>
 
-      {/* BACKGROUND STORY & ALIBI BLURB BOX */}
-      <div className="mt-8 pt-6 border-t border-slate-800 space-y-3">
-        <h2 className="text-xs font-black uppercase text-amber-500 tracking-wider font-mono">
-          📜 Operational Briefing & Alibi Log
-        </h2>
-        <div className="bg-slate-900/50 border border-slate-850 p-4 rounded-xl text-xs text-slate-400 leading-relaxed font-serif shadow-inner">
-          {storyText}
-        </div>
-      </div>
-
       {/* POP-UP DOSSIER PROFILE MODAL CARDS */}
       {selectedPlayer && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end justify-center z-50 p-4">
@@ -158,20 +137,27 @@ export default function AttendeeList({ currentCharacter }) {
             <div className="w-12 h-1 bg-slate-800 rounded-full mx-auto mb-2" />
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="text-2xl font-black text-indigo-400">{selectedPlayer.character_name}</h3>
+                <h3 className="text-2xl font-black text-indigo-400 flex items-center flex-wrap gap-2">
+                  <span>{selectedPlayer.character_name}</span>
+                  {selectedPlayer.real_name && (
+                    <span className="text-sm text-slate-500 font-normal font-sans italic mt-1">
+                      ({selectedPlayer.real_name})
+                    </span>
+                  )}
+                </h3>
                 <p className={`text-xs font-bold uppercase mt-1 ${selectedPlayer.is_alive ? 'text-green-500' : 'text-red-500'}`}>
                   Current Log: {selectedPlayer.is_alive ? '🟢 Active' : '🔴 Deceased'}
                 </p>
               </div>
-              <button onClick={() => setSelectedPlayer(null)} className="bg-slate-800 p-2 text-xs rounded-full w-8 h-8 text-slate-400">✕</button>
+              <button onClick={() => setSelectedPlayer(null)} className="bg-slate-800 p-2 text-xs rounded-full w-8 h-8 text-slate-400 flex items-center justify-center">✕</button>
             </div>
 
-            {/* CHARACTER BIO DISCRIPTIONS */}
+            {/* CHARACTER BIO DESCRIPTION */}
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed max-h-48 overflow-y-auto font-serif">
               {selectedPlayer.description || "No official records found on this individual..."}
             </div>
 
-            {/* 🔬 DYNAMIC REVEAL SYSTEM: FINGERPRINT PROFILE DATA COMPONENT LOCK */}
+            {/* FORENSIC LABORATORY FINGERPRINT LOGS */}
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-1">
               <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-slate-500 block">Forensic Laboratory Logs</span>
               <div className="text-xs font-medium">
@@ -186,11 +172,8 @@ export default function AttendeeList({ currentCharacter }) {
                 )}
               </div>
             </div>
-
-            <button
-              onClick={() => setSelectedPlayer(null)}
-              className="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-xs border border-slate-700"
-            >
+            
+            <button onClick={() => setSelectedPlayer(null)} className="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-xs border border-slate-700" >
               Close Roster Dossier
             </button>
           </div>
