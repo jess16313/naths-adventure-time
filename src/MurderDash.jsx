@@ -14,7 +14,6 @@ export default function MurdererDash({ currentCharacter }) {
 
   useEffect(() => {
     fetchGameContext();
-    
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -47,6 +46,7 @@ export default function MurdererDash({ currentCharacter }) {
       .select('*')
       .eq('id', riddleLevel)
       .maybeSingle();
+
     if (riddleData) setRiddle(riddleData);
 
     // 3. Calculate 5-minute cooldown safety parameters
@@ -72,7 +72,6 @@ export default function MurdererDash({ currentCharacter }) {
   const startCooldownTimer = (seconds) => {
     setCooldownTimeLeft(seconds);
     if (timerRef.current) clearInterval(timerRef.current);
-
     timerRef.current = setInterval(() => {
       setCooldownTimeLeft((prev) => {
         if (prev <= 1) {
@@ -89,6 +88,26 @@ export default function MurdererDash({ currentCharacter }) {
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
+
+  // Internal Helper to send Push Notification to Game Host via OneSignal
+  async function notifyHost(messageContent) {
+    try {
+      await fetch("https://onesignal.com", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Authorization": "Basic M2QxNzNiZjEtMDk2Yi00MWU3LWFiYTUtOWY1YzhkODUxNDMw" // replace this key if needed
+        },
+        body: JSON.stringify({
+          app_id: "97d83ae0-54b0-4bdf-9ced-69ceab157324",
+          contents: { en: messageContent },
+          filters: [{ field: "tag", key: "role", relation: "=", value: "host" }]
+        })
+      });
+    } catch (err) {
+      console.error("Push failed to deliver:", err);
+    }
+  }
 
   const handleStrike = async (e) => {
     e.preventDefault();
@@ -116,24 +135,29 @@ export default function MurdererDash({ currentCharacter }) {
 
     if (targetProfile.nurse_immune) {
       alert("🛡️ CRISIS: Your attack vector was neutralized by a medical antidote! Escape the room!");
+
+      // Notify host that a strike failed because of the Nurse
+      await notifyHost(`🛡️ ATTACK BLOCKED: Murderer tried to kill ${targetProfile.character_name}, but the Nurse's vaccine saved them!`);
+
       // Consume the kill timestamp to trigger cooldown even on failure, giving the nurse strategy weight
       await supabase.from('players').update({ last_kill_timestamp: new Date().toISOString() }).eq('id', currentCharacter.id);
       await supabase.from('players').update({ nurse_immune: false }).eq('id', selectedTarget); // Pop immunity
+      
       fetchGameContext();
       return;
     }
 
     // 4. EXECUTE ASSASSINATION TRANSACTION
     const nextKillTotal = killCount + 1;
-    
+
     // Mark target as dead
     await supabase.from('players').update({ is_alive: false }).eq('id', selectedTarget);
-    
+
     // Update murderer counters and time marks
-    await supabase.from('players').update({
-      total_kills_executed: nextKillTotal,
-      last_kill_timestamp: new Date().toISOString()
-    }).eq('id', currentCharacter.id);
+    await supabase.from('players').update({ total_kills_executed: nextKillTotal, last_kill_timestamp: new Date().toISOString() }).eq('id', currentCharacter.id);
+
+    // Notify host of successful target destruction
+    await notifyHost(`💀 CRITICAL STRIKE: The Murderer has eliminated ${targetProfile.character_name}!`);
 
     alert(`💀 Target Terminated. ${targetProfile.character_name} has been dropped from active logs.`);
     setKillCount(nextKillTotal);
@@ -162,11 +186,7 @@ export default function MurdererDash({ currentCharacter }) {
           {/* Target Selector Dropdown */}
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase font-black tracking-wider text-slate-500 block">Select Target Parameter</label>
-            <select
-              value={selectedTarget}
-              onChange={(e) => setSelectedTarget(e.target.value)}
-              className="w-full p-2.5 bg-slate-950 border border-slate-850 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-red-600"
-            >
+            <select value={selectedTarget} onChange={(e) => setSelectedTarget(e.target.value)} className="w-full p-2.5 bg-slate-950 border border-slate-850 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-red-600" >
               <option value="">-- Choose Vulnerable Guest ({killCount === 0 ? "Bank of 5" : killCount === 1 ? "Bank of 8" : "All Unlocked"}) --</option>
               {targetPool.map(p => (
                 <option key={p.id} value={p.id}>{p.character_name} ({p.real_name})</option>
@@ -180,19 +200,10 @@ export default function MurdererDash({ currentCharacter }) {
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 font-serif text-xs text-slate-300 leading-relaxed shadow-inner">
               {riddle?.riddle_text || "Gathering decryption logs..."}
             </div>
-            <input
-              type="text"
-              placeholder="Type decrypted lowercase key..."
-              value={riddleInput}
-              onChange={(e) => setRiddleInput(e.target.value)}
-              className="w-full p-2.5 bg-slate-950 border border-slate-850 text-xs rounded-xl text-slate-200 focus:outline-none focus:border-red-600"
-            />
+            <input type="text" placeholder="Type decrypted lowercase key..." value={riddleInput} onChange={(e) => setRiddleInput(e.target.value)} className="w-full p-2.5 bg-slate-950 border border-slate-850 text-xs rounded-xl text-slate-200 focus:outline-none focus:border-red-600" />
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs border border-red-500/40 shadow-lg transition"
-          >
+          <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs border border-red-500/40 shadow-lg transition" >
             Authorize Fatal Strike Vector 🔪
           </button>
         </form>

@@ -19,7 +19,7 @@ export default function NursePanel({ currentCharacter }) {
   };
 
   const fetchNextMedicalRiddle = async () => {
-    const { data } = await supabase.from('nurse_riddles').select('*').limit(1); // Pulls a diagnostic challenge
+    const { data } = await supabase.from('nurse_riddles').select('*').limit(1);
     if (data && data.length > 0) setRiddle(data[0]);
   };
 
@@ -34,18 +34,39 @@ export default function NursePanel({ currentCharacter }) {
     }
   };
 
+  // Internal Helper to send Push Notification to Game Host via OneSignal
+  async function notifyHost(messageContent) {
+    try {
+      await fetch("https://onesignal.com", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Authorization": "Basic M2QxNzNiZjEtMDk2Yi00MWU3LWFiYTUtOWY1YzhkODUxNDMw" // replace this key if needed
+        },
+        body: JSON.stringify({
+          app_id: "97d83ae0-54b0-4bdf-9ced-69ceab157324",
+          contents: { en: messageContent },
+          filters: [{ field: "tag", key: "role", relation: "=", value: "host" }]
+        })
+      });
+    } catch (err) {
+      console.error("Push failed to deliver:", err);
+    }
+  }
+
   const handleDeployAntidote = async (e) => {
     e.preventDefault();
     if (!selectedPatient || antidotesHeld <= 0) return;
 
-    // Grant player chemical immunity against the murderer's next strike vector
+    // 1. Grant player chemical immunity against the murderer's next strike vector
     await supabase.from('players').update({ nurse_immune: true }).eq('id', selectedPatient);
 
-    // Broadcast deployment warning to the room
+    // 2. Broadcast deployment warning to the room
     const patientName = players.find(p => p.id === selectedPatient)?.character_name;
-    await supabase.from('active_broadcast').update({
-      message_text: `🩺 MEDICAL WARD ACTIVE: The Nurse has secretly deployed an antidote vaccine to a guest...`
-    }).eq('id', 1);
+    await supabase.from('active_broadcast').update({ message_text: `🩺 MEDICAL WARD ACTIVE: The Nurse has secretly deployed an antidote vaccine to a guest...` }).eq('id', 1);
+
+    // 3. Notify the Host directly using OneSignal Push Notification
+    await notifyHost(`🛡️ Nurse Administered Immunity: ${patientName} has received an antidote charge!`);
 
     setAntidotesHeld(prev => prev - 1);
     setSelectedPatient('');
@@ -79,13 +100,7 @@ export default function NursePanel({ currentCharacter }) {
         <p className="text-slate-400 font-serif text-xs bg-slate-950 p-4 rounded-xl border border-slate-850">
           "{riddle?.riddle_text}"
         </p>
-        <input 
-          type="text" 
-          placeholder="Type riddle key..." 
-          value={riddleInput}
-          onChange={(e) => setRiddleInput(e.target.value)}
-          className="w-full p-2.5 bg-slate-950 border border-slate-850 text-xs rounded-xl text-slate-200 focus:outline-none focus:border-emerald-500"
-        />
+        <input type="text" placeholder="Type riddle key..." value={riddleInput} onChange={(e) => setRiddleInput(e.target.value)} className="w-full p-2.5 bg-slate-950 border border-slate-850 text-xs rounded-xl text-slate-200 focus:outline-none focus:border-emerald-500" />
         <button type="submit" className="w-full bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider">
           Synthesize Serum
         </button>
@@ -96,11 +111,7 @@ export default function NursePanel({ currentCharacter }) {
         <h2 className="text-xs font-black text-slate-400 uppercase tracking-wide">Administer Patient Dosage</h2>
         {antidotesHeld > 0 ? (
           <form onSubmit={handleDeployAntidote} className="space-y-3">
-            <select
-              value={selectedPatient}
-              onChange={(e) => setSelectedPatient(e.target.value)}
-              className="w-full p-2.5 bg-slate-950 border border-slate-850 rounded-xl text-xs text-slate-300 focus:outline-none"
-            >
+            <select value={selectedPatient} onChange={(e) => setSelectedPatient(e.target.value)} className="w-full p-2.5 bg-slate-950 border border-slate-850 rounded-xl text-xs text-slate-300 focus:outline-none" >
               <option value="">-- Choose Target to Immunize --</option>
               {players.map(p => <option key={p.id} value={p.id}>{p.character_name}</option>)}
             </select>
