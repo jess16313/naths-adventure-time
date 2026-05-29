@@ -19,55 +19,59 @@ export default function MurdererDash({ currentCharacter }) {
     };
   }, [killCount]);
 
-  const fetchGameContext = async () => {
-    // 1. Fetch current live, vulnerable players (Good team members who are alive)
-    const { data: allPlayers } = await supabase
-      .from('players')
-      .select('*')
-      .eq('is_alive', true)
-      .eq('team', 'good')
-      .order('character_name', { ascending: true });
+const fetchGameContext = async () => {
+  // 1. Fetch current live, vulnerable players
+  const { data: allPlayers } = await supabase
+    .from('players')
+    .select('*')
+    .eq('is_alive', true)
+    .eq('team', 'good')
+    .order('character_name', { ascending: true });
 
-    if (allPlayers) {
-      // ADAPTIVE LOGIC: Slice the array based on execution history
-      if (killCount === 0) {
-        setTargetPool(allPlayers.slice(0, 5)); // First 5 people bank
-      } else if (killCount === 1) {
-        setTargetPool(allPlayers.slice(0, 8)); // Expands to 8 people bank
-      } else {
-        setTargetPool(allPlayers); // Everyone else unlocked
-      }
+  if (allPlayers) {
+    if (killCount === 0) {
+      setTargetPool(allPlayers.slice(0, 5));
+    } else if (killCount === 1) {
+      setTargetPool(allPlayers.slice(0, 8));
+    } else {
+      setTargetPool(allPlayers);
     }
+  }
 
-    // 2. Fetch the corresponding riddle level
-    const riddleLevel = (killCount % 5) + 1; // Loops riddles back if they get past 5 kills
-    const { data: riddleData } = await supabase
-      .from('murderer_riddles')
-      .select('*')
-      .eq('id', riddleLevel)
-      .maybeSingle();
+  // 2. BULLETPROOF RIDDLE FETCH CONNECTOR
+  // Grabs all riddles and selects one deterministically based on kill count.
+  // This bypasses any database strict ID matching issues.
+  const { data: allRiddles } = await supabase
+    .from('murderer_riddles')
+    .select('*');
+    
+  if (allRiddles && allRiddles.length > 0) {
+    const riddleIndex = killCount % allRiddles.length;
+    setRiddle(allRiddles[riddleIndex]);
+  }
 
-    if (riddleData) setRiddle(riddleData);
+  // 3. Cooldown safety logic
+  const { data: freshMe } = await supabase
+    .from('players')
+    .select('last_kill_timestamp')
+    .eq('id', currentCharacter.id)
+    .single();
 
-    // 3. Calculate 5-minute cooldown safety parameters
-    const { data: freshMe } = await supabase
-      .from('players')
-      .select('last_kill_timestamp')
-      .eq('id', currentCharacter.id)
-      .single();
+  if (freshMe?.last_kill_timestamp) {
+    const lastKillTime = new Date(freshMe.last_kill_timestamp).getTime();
+    const currentTime = new Date().getTime();
+    
+    // Changing this parameter changes your active lock duration!
+    const cooldownDurationMs = 20 * 60 * 1000; 
+    const msElapsed = currentTime - lastKillTime;
 
-    if (freshMe?.last_kill_timestamp) {
-      const lastKillTime = new Date(freshMe.last_kill_timestamp).getTime();
-      const currentTime = new Date().getTime();
-      const fiveMinutesInMs = 5 * 60 * 1000;
-      const msElapsed = currentTime - lastKillTime;
-
-      if (msElapsed < fiveMinutesInMs) {
-        const remainingSeconds = Math.ceil((fiveMinutesInMs - msElapsed) / 1000);
-        startCooldownTimer(remainingSeconds);
-      }
+    if (msElapsed < cooldownDurationMs) {
+      const remainingSeconds = Math.ceil((cooldownDurationMs - msElapsed) / 1000);
+      startCooldownTimer(remainingSeconds);
     }
-  };
+  }
+};
+
 
   const startCooldownTimer = (seconds) => {
     setCooldownTimeLeft(seconds);
@@ -152,6 +156,10 @@ export default function MurdererDash({ currentCharacter }) {
 
     // Mark target as dead
     await supabase.from('players').update({ is_alive: false }).eq('id', selectedTarget);
+
+    await supabase.from('active_broadcast').update({
+    message_text: `🚨 A GRUESOME DISCOVERY: A body has been found! ${targetProfile.character_name} is no longer among the living. All guests assemble.`
+    }).eq('id', 1);
 
     // Update murderer counters and time marks
     await supabase.from('players').update({ total_kills_executed: nextKillTotal, last_kill_timestamp: new Date().toISOString() }).eq('id', currentCharacter.id);

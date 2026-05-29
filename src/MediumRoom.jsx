@@ -2,20 +2,22 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from './supabaseClient';
 
 export default function MediumRoom({ currentCharacter }) {
-  const [questionBank, setQuestionBank] = useState([]);
+  const [yesNoBank, setYesNoBank] = useState([]);
   const [riddle, setRiddle] = useState(null);
   const [riddleInput, setRiddleInput] = useState('');
-  const [credits, setCredits] = useState(currentCharacter.question_credits || 0);
-  const [questCount, setQuestCount] = useState(currentCharacter.total_quests_solved || 0);
+  
+  // LIVE TRACKED PROGRESS
+  const [questCount, setQuestCount] = useState(currentCharacter.seance_riddles_solved || 0);
+  const [credits, setCredits] = useState(0);
   const [selectedQuestion, setSelectedQuestion] = useState('');
-  const [transmissionStatus, setTransmissionStatus] = useState('');
+  const [revealedAnswers, setRevealedAnswers] = useState({}); // Stores unlocked answers locally
 
   // Cooldown States
   const [cooldownLeft, setCooldownLeft] = useState(0);
   const timerRef = useRef(null);
 
   useEffect(() => {
-    fetchQuestions();
+    fetchStagedQuestions();
     if (currentCharacter.is_alive) {
       fetchCurrentQuest();
     }
@@ -24,40 +26,51 @@ export default function MediumRoom({ currentCharacter }) {
     };
   }, [questCount]);
 
-  const fetchQuestions = async () => {
+  const fetchStagedQuestions = async () => {
+    // Dynamically calculate which clue stage to fetch based on current riddles solved
+    const currentStage = Math.max(1, questCount + 1);
     const { data } = await supabase
-      .from('preapproved_questions')
+      .from('medium_yes_no_questions')
       .select('*')
-      .order('id', { ascending: true })
-      .limit(5);
-    if (data) setQuestionBank(data);
+      .eq('clue_stage', currentStage)
+      .order('id', { ascending: true });
+    if (data) setYesNoBank(data);
   };
 
   const fetchCurrentQuest = async () => {
-    if (questCount >= 10) return;
-
-    const { data: riddleData } = await supabase
-      .from('medium_riddles')
-      .select('*')
-      .eq('id', questCount + 1)
-      .maybeSingle();
-    if (riddleData) setRiddle(riddleData);
-
+    // 1. FRESH PROFILE SCHEMA SYNC
     const { data: freshMe } = await supabase
       .from('players')
-      .select('last_quest_timestamp')
+      .select('seance_riddles_solved, last_quest_timestamp, hints_used')
       .eq('id', currentCharacter.id)
       .single();
 
-    if (freshMe?.last_quest_timestamp) {
-      const lastQuestTime = new Date(freshMe.last_quest_timestamp).getTime();
-      const currentTime = new Date().getTime();
-      const fifteenMinutesInMs = 15 * 60 * 1000;
-      const msElapsed = currentTime - lastQuestTime;
+    if (freshMe) {
+      const liveSolved = freshMe.seance_riddles_solved || 0;
+      const liveSpent = freshMe.hints_used || 0;
+      setQuestCount(liveSolved);
+      setCredits(Math.max(0, liveSolved - liveSpent));
 
-      if (msElapsed < fifteenMinutesInMs) {
-        const remainingSeconds = Math.ceil((fifteenMinutesInMs - msElapsed) / 1000);
-        startCooldownTimer(remainingSeconds);
+      if (liveSolved >= 10) return;
+
+      // 2. FETCH CORRESPONDING RIDDLE
+      const { data: allRiddles } = await supabase.from('medium_riddles').select('*').order('id', { ascending: true });
+      if (allRiddles && allRiddles.length > 0) {
+        const index = liveSolved % allRiddles.length;
+        setRiddle(allRiddles[index]);
+      }
+
+      // 3. CALCULATE TIMEOUT
+      if (freshMe.last_quest_timestamp) {
+        const lastQuestTime = new Date(freshMe.last_quest_timestamp).getTime();
+        const currentTime = new Date().getTime();
+        const fifteenMinutesInMs = 15 * 60 * 1000;
+        const msElapsed = currentTime - lastQuestTime;
+
+        if (msElapsed < fifteenMinutesInMs) {
+          const remainingSeconds = Math.ceil((fifteenMinutesInMs - msElapsed) / 1000);
+          startCooldownTimer(remainingSeconds);
+        }
       }
     }
   };
@@ -65,7 +78,6 @@ export default function MediumRoom({ currentCharacter }) {
   const startCooldownTimer = (seconds) => {
     setCooldownLeft(seconds);
     if (timerRef.current) clearInterval(timerRef.current);
-
     timerRef.current = setInterval(() => {
       setCooldownLeft((prev) => {
         if (prev <= 1) {
@@ -94,37 +106,34 @@ export default function MediumRoom({ currentCharacter }) {
     }
 
     const nextQuestTotal = questCount + 1;
-    const nextCredits = credits + 1;
-    
     setQuestCount(nextQuestTotal);
-    setCredits(nextCredits);
+    setCredits(prev => prev + 1);
 
     await supabase.from('players').update({
-      total_quests_solved: nextQuestTotal,
-      question_credits: nextCredits,
+      seance_riddles_solved: nextQuestTotal,
       last_quest_timestamp: new Date().toISOString()
     }).eq('id', currentCharacter.id);
 
-    alert("✨ SUCCESS! A spiritual veil lifts. You have gained 1 Question Credit.");
+    alert("✨ SUCCESS! A spiritual veil lifts. You have gained 1 Interrogation Token and unlocked the next clue tier.");
     setRiddleInput('');
+    setRevealedAnswers({}); 
   };
 
-  const handleTransmitInquiry = async (e) => {
+  const handleRevealAnswer = async (e) => {
     e.preventDefault();
     if (!selectedQuestion || credits <= 0) return;
 
-    const nextCredits = credits - 1;
-    setCredits(nextCredits);
+    const selectedObj = yesNoBank.find(q => q.id === parseInt(selectedQuestion));
+    if (!selectedObj) return;
 
-    await supabase.from('players').update({ question_credits: nextCredits }).eq('id', currentCharacter.id);
+    setCredits(prev => prev - 1);
 
-    const selectedText = questionBank.find(q => q.id === parseInt(selectedQuestion))?.question_text;
-    
-    await supabase.from('active_broadcast').update({
-      message_text: `🔮 MEDIUM INQUIRY: "${selectedText}" — Host verdict pending.`
-    }).eq('id', 1);
+    const { data: freshMe } = await supabase.from('players').select('hints_used').eq('id', currentCharacter.id).single();
+    const nextSpent = (freshMe?.hints_used || 0) + 1;
+    await supabase.from('players').update({ hints_used: nextSpent }).eq('id', currentCharacter.id);
 
-    setTransmissionStatus("📡 Transmitted! Look at the Host for a silent head nod or shake.");
+    setRevealedAnswers(prev => ({ ...prev, [selectedQuestion]: selectedObj.correct_answer }));
+    alert(`👁️ ANSWER REVEALED: Truth logs updated!`);
     setSelectedQuestion('');
   };
 
@@ -135,85 +144,81 @@ export default function MediumRoom({ currentCharacter }) {
           {currentCharacter.is_alive ? "The Seer's Lounge" : "The Shattered Mirror"}
         </h1>
         <p className="text-xs text-slate-500 mt-1">
-          {currentCharacter.is_alive ? `Quests Resolved: ${questCount} / 10` : "Your aura has dissolved. The link between dimensions is broken."}
+          {currentCharacter.is_alive ? `Active Clue Level: Clue ${questCount + 1} / 10` : "Your aura has dissolved."}
         </p>
       </div>
 
-      {transmissionStatus && (
-        <div className="p-3 bg-purple-950/40 border border-purple-900 rounded-xl text-xs text-purple-300 text-center animate-fade-in">
-          {transmissionStatus}
-        </div>
-      )}
-
       {!currentCharacter.is_alive ? (
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
-          <div className="text-3xl text-center">🪞</div>
-          <h3 className="text-xs font-black text-rose-400 uppercase tracking-wider text-center">Psychic Interface Severed</h3>
-          <p className="text-xs text-slate-400 leading-relaxed font-serif bg-slate-950 p-4 rounded-xl border border-slate-850">
-            Because you have split from the physical world, your scavenger hunt blueprints are gone. You can no longer interrogate the Game Master, and the deceased players can no longer read clues from your terminal. 
-          </p>
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center">
+          <p className="text-xs text-slate-400 font-serif">Psychic Interface Severed.</p>
         </div>
       ) : (
         <>
+          {/* TOKEN BALANCE */}
           <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex justify-between items-center">
-            <span className="text-xs text-slate-400 font-bold uppercase">Interrogation Balance</span>
+            <span className="text-xs text-slate-400 font-bold uppercase">Interrogation Tokens</span>
             <span className="bg-purple-950 border border-purple-800 text-purple-300 font-mono font-bold text-xs px-3 py-1 rounded-md">
-              {credits} Tokens
+              {credits} Available
             </span>
           </div>
 
+          {/* RIDDLE CHALLENGE */}
           {questCount >= 10 ? (
             <div className="bg-indigo-950/20 border border-indigo-900/40 p-4 rounded-xl text-center text-xs text-slate-300">
-              👁️ Your mind has fully transitioned. All 10 vision realms have been conquered.
+              👁️ All clues unlocked.
             </div>
           ) : cooldownLeft > 0 ? (
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center space-y-2">
-              <p className="text-[10px] uppercase font-bold text-slate-500">Psychic distortion clearing. Next vision in:</p>
-              <div className="text-xl font-mono font-black text-purple-400 bg-slate-950 px-4 py-1 rounded-lg inline-block border border-slate-900">
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center">
+              <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Next vision in:</p>
+              <div className="text-xl font-mono font-black text-purple-400 bg-slate-950 px-4 py-1 rounded-lg border border-slate-900 inline-block">
                 {formatTime(cooldownLeft)}
               </div>
             </div>
           ) : (
             <form onSubmit={handleSolveRiddle} className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
               <h2 className="text-xs font-black text-purple-400 uppercase tracking-wide">Vision Quest {questCount + 1}</h2>
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 font-serif text-xs text-slate-300 leading-relaxed shadow-inner">
-                {riddle?.riddle_text || "Downloading spiritual code sequences..."}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 font-serif text-xs text-slate-300 shadow-inner">
+                {riddle?.riddle_text || "Downloading spiritual tracks..."}
               </div>
-              <input
-                type="text"
-                placeholder="Type your deciphered lowercase answer..."
-                value={riddleInput}
-                onChange={(e) => setRiddleInput(e.target.value)}
-                className="w-full p-2.5 bg-slate-950 border border-slate-850 text-xs rounded-xl text-slate-200 focus:outline-none"
-              />
-              <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition">
-                Unlock Vision Channel
-              </button>
+              <input type="text" placeholder="Type answer..." value={riddleInput} onChange={(e) => setRiddleInput(e.target.value)} className="w-full p-2.5 bg-slate-950 border border-slate-850 text-xs rounded-xl text-slate-200 focus:outline-none" />
+              <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider transition"> Unlock Vision Channel </button>
             </form>
           )}
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
-            <h2 className="text-xs font-black text-slate-400 uppercase tracking-wide">Project Ledger Interrogation</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-xs font-black text-slate-400 uppercase tracking-wide">Stage {questCount + 1} Question Vault</h2>
+              <span className="text-[9px] text-amber-500 font-mono uppercase bg-amber-950/40 px-2 py-0.5 rounded border border-amber-900/30"> Clue Filter Active </span>
+            </div>
+
             {credits > 0 ? (
-              <form onSubmit={handleTransmitInquiry} className="space-y-3">
-                <select
-                  value={selectedQuestion}
-                  onChange={(e) => setSelectedQuestion(e.target.value)}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-850 rounded-xl text-xs text-slate-300 focus:outline-none"
-                >
-                  <option value="">-- Select Question Bank (Max 5 Available) --</option>
-                  {questionBank.map(q => (
-                    <option key={q.id} value={q.id}>{q.question_text}</option>
+              <form onSubmit={handleRevealAnswer} className="space-y-3">
+                <select value={selectedQuestion} onChange={(e) => setSelectedQuestion(e.target.value)} className="w-full p-2.5 bg-slate-950 border border-slate-850 rounded-xl text-xs text-slate-300 focus:outline-none" >
+                  <option value="">-- Spend 1 Token to Reveal Stage {questCount + 1} Answer --</option>
+                  {yesNoBank.map(q => (
+                    <option key={q.id} value={q.id} disabled={revealedAnswers[q.id] !== undefined}>
+                      {q.question_text} {revealedAnswers[q.id] ? "✅ (Unlocked)" : ""}
+                    </option>
                   ))}
                 </select>
-                <button type="submit" className="w-full bg-slate-800 hover:bg-slate-750 border border-slate-700 text-purple-400 font-bold py-2 rounded-xl text-xs uppercase tracking-wide transition">
-                  Submit Inquiry to Game Master
-                </button>
+                <button type="submit" className="w-full bg-slate-800 border border-slate-700 text-purple-400 font-bold py-2 rounded-xl text-xs uppercase tracking-wide transition"> Reveal Truth Matrix </button>
               </form>
             ) : (
-              <p className="text-[11px] text-slate-500 italic text-center py-2 bg-slate-950 rounded-lg border border-slate-850">
-                🔒 Interrogation desk locked. Solve the active vision quest riddle to earn question tokens.
-              </p>
+              <p className="text-[11px] text-slate-500 italic text-center py-2 bg-slate-950 rounded-lg border border-slate-850"> 🔒 Vault Sealed. Crack Vision Quest {questCount + 1} to gain tokens for this stage. </p>
+            )}
+            {Object.keys(revealedAnswers).length > 0 && (
+              <div className="pt-3 border-t border-slate-800 space-y-2">
+                <h3 className="text-[10px] font-black uppercase text-amber-500">Decoded Revelations:</h3>
+                {Object.entries(revealedAnswers).map(([id, ans]) => {
+                  const qText = yesNoBank.find(q => q.id === parseInt(id))?.question_text;
+                  return (
+                    <div key={id} className="bg-slate-950 p-3 rounded-lg border border-slate-850 text-xs text-slate-300 font-mono flex justify-between items-center">
+                      <span className="text-slate-400 font-serif pr-2">"{qText || "Unknown Question"}"</span>
+                      <span className={`font-mono font-black px-2 py-0.5 rounded text-[10px] ${ans === 'YES' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900' : 'bg-rose-950 text-rose-400 border border-rose-900'}`}> {ans} </span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </>

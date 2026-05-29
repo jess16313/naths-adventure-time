@@ -6,13 +6,20 @@ export default function AttendeeList({ currentCharacter }) {
   const [storyText, setStoryText] = useState('Gathering intelligence logs...');
   const [selectedPlayer, setSelectedPlayer] = useState(null); 
   const [loading, setLoading] = useState(true);
-
-  // NEW: Track whether Evidence Item #6 has been uncovered yet
   const [willIsFound, setWillIsFound] = useState(false);
+
+  // Helper function to pull a completely fresh roster list from Supabase
+  const refreshRoster = async () => {
+    const { data } = await supabase
+      .from('players')
+      .select('*')
+      .order('character_name', { ascending: true });
+    if (data) setPlayers(data);
+  };
 
   useEffect(() => {
     async function fetchData() {
-      // 1. Fetch guest rosters
+      // 1. Fetch initial guest roster fields
       const { data: guestData } = await supabase
         .from('players')
         .select('*')
@@ -40,7 +47,7 @@ export default function AttendeeList({ currentCharacter }) {
 
     fetchData();
 
-    // 4. Live subscription updates for story progression and evidence breakthroughs
+    // 4. Live subscription updates for story progression, evidence, AND player metrics
     const liveSub = supabase
       .channel('attendee-vault-sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'campaign_story' }, (payload) => {
@@ -51,6 +58,18 @@ export default function AttendeeList({ currentCharacter }) {
           setWillIsFound(payload.new.is_discovered);
         }
       })
+      // 🚨 CRUCIAL FIX: Listen for updates to the players table (Kills, Antidotes, Immunity)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'players' }, (payload) => {
+        refreshRoster(); // Auto-re-fetch table rows instantly when a change triggers in the cloud
+
+        // If the player currently viewed in the modal popup gets updated, refresh their data frame too
+        setSelectedPlayer((current) => {
+          if (current && current.id === payload.new.id) {
+            return payload.new;
+          }
+          return current;
+        });
+      })
       .subscribe();
 
     return () => supabase.removeChannel(liveSub);
@@ -60,8 +79,8 @@ export default function AttendeeList({ currentCharacter }) {
     return <div className="text-center mt-10 text-slate-400 animate-pulse">Loading guest logs...</div>;
   }
 
-  // Quick verification checks
   const isGoodTeam = currentCharacter.team === 'good';
+  const canSeeImmunity = currentCharacter.role === 'nurse' || currentCharacter.role === 'host';
 
   return (
     <div className="space-y-6">
@@ -103,6 +122,13 @@ export default function AttendeeList({ currentCharacter }) {
                   <div className="font-bold flex items-center gap-2 text-sm">
                     {player.character_name}
                     {isMe && <span className="bg-indigo-900 text-indigo-400 text-[9px] font-extrabold px-1 rounded uppercase">You</span>}
+                    
+                    {/* 🛡️ IMMUNITY SHIELD BADGE: Only rendered if alive, protected, and viewed by Nurse/Host */}
+                    {player.is_alive && player.nurse_immune && canSeeImmunity && (
+                      <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-extrabold px-1 rounded uppercase tracking-wide animate-pulse">
+                        🛡️ Shielded
+                      </span>
+                    )}
                   </div>
                   <p className="text-[9px] uppercase font-bold tracking-wider text-slate-500">
                     Status: {player.is_alive ? 'Active' : 'Deceased'}
@@ -130,7 +156,6 @@ export default function AttendeeList({ currentCharacter }) {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end justify-center z-50 p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl p-6 space-y-4 shadow-2xl relative">
             <div className="w-12 h-1 bg-slate-800 rounded-full mx-auto mb-2" />
-            
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-2xl font-black text-indigo-400">{selectedPlayer.character_name}</h3>

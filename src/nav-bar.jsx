@@ -22,6 +22,12 @@ export default function NavBar({ activeTab, setActiveTab, currentCharacter }) {
           {isAlive && currentCharacter?.role === 'nurse' && (
           <button onClick={() => setActiveTab('infirmary')} className={getBtnStyle('infirmary')}>🩺 Ward</button>
         )}
+        {isAlive && currentCharacter?.role === 'murderer' && (
+          <button onClick={() => setActiveTab('execute-deck')} className={getBtnStyle('execute-deck')}>🔪 Kill</button>
+        )}
+        {isAlive && currentCharacter?.role === 'accomplice' && (
+          <button onClick={() => setActiveTab('conspiracy-deck')} className={getBtnStyle('conspiracy-deck')}>🤫 Syndicate</button>
+        )}
         </>
       )}
 
