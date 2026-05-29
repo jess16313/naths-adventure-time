@@ -12,7 +12,8 @@ import AccompliceBox from './Accomplice';
 import ImposterDash from './Imposter'; 
 import MediumRoom from './MediumRoom'; 
 import NursePanel from './NursePanel'; 
-import { LivingMediumView, DeadMediumView } from './Medium'; 
+import { LivingMediumView, DeadMediumView } from './Medium';
+import OneSignal from 'react-onesignal'; 
 
 export default function App() { 
   const [character, setCharacter] = useState(null); 
@@ -51,11 +52,16 @@ export default function App() {
           }
         });
       }
-
-      OneSignal.init({
-        appId: "97d83ae0-54b0-4bdf-9ced-69ceab157324",
-        allowLocalhostAsSecure: true 
-      })
+      if (window.OneSignal) {
+      useEffect(() => {
+        OneSignal.init({ 
+          appId: "97d83ae0-54b0-4bdf-9ced-69ceab157324",
+          allowLocalhostAsSecureOrigin: true 
+        });
+      }, []);}
+      else {
+        console.log("OneSignal SDK hasn't loaded yet.");
+      }
 
       const alertSub = supabase 
         .channel('live-alerts') 
