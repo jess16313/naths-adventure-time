@@ -152,11 +152,13 @@ export default function AttendeeList({ currentCharacter }) {
               <button onClick={() => setSelectedPlayer(null)} className="bg-slate-800 p-2 text-xs rounded-full w-8 h-8 text-slate-400 flex items-center justify-center">✕</button>
             </div>
 
-            {/* CHARACTER BIO DESCRIPTION */}
-            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed max-h-48 overflow-y-auto font-serif">
-              {selectedPlayer.description || "No official records found on this individual..."}
-            </div>
-
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed max-h-48 overflow-y-auto font-serif">
+            {selectedPlayer.id === currentCharacter.id ? (
+              selectedPlayer.description || "No official records found on this individual..."
+            ) : (
+              <span className="text-slate-500 italic">🔒 Description is classified. You can only view your own profile.</span>
+            )}
+          </div>
             {/* FORENSIC LABORATORY FINGERPRINT LOGS */}
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-1">
               <span className="text-[9px] uppercase font-mono tracking-wider font-bold text-slate-500 block">Forensic Laboratory Logs</span>
