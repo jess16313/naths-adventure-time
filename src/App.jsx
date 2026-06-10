@@ -1,237 +1,152 @@
-import { useState, useEffect } from 'react' 
-import NavBar from './nav-bar' 
+import React, { useState, useEffect } from 'react'; 
 import { supabase } from './supabaseClient'; 
-import AttendeeList from './attendees'; 
-import NotesPage from './notes'; 
-import EvidencePage from './Evidence'; 
-import HostPanel from './HostPanel'; 
-import VotingBooth from './Vote'; 
-import MurdererDash from './MurderDash'; 
-import AfterlifePage from './AfterLife'; 
-import AccompliceBox from './Accomplice'; 
-import ImposterDash from './Imposter'; 
-import MediumRoom from './MediumRoom'; 
-import NursePanel from './NursePanel'; 
+import Login from './components/Login'; // <-- Import the login card element
+import MinigameOverlay from './components/minigame'; 
+import Thief from './components/roles/Thief';
+import Liar from './components/roles/Liar';
+import Priest from './components/roles/Priest';
+import Kidnapper from './components/roles/Kidnapper';
+import Interrogator from './components/roles/Interrogator';
+import HintGiver from './components/roles/hint_giver';
 
 export default function App() { 
-  const [character, setCharacter] = useState(null); 
-  const [loginInput, setLoginInput] = useState(''); 
-  const [pinInput, setPinInput] = useState(''); 
-  const [activeTab, setActiveTab] = useState('dashboard'); 
-  const [errorMsg, setErrorMsg] = useState(''); 
-  const [broadcastMessage, setBroadcastMessage] = useState('Loading broadcast protocols...'); 
-  const [globalBanner, setGlobalBanner] = useState(null);
+  // Initialize state variable as null instead of a hardcoded 1
+  const [userId, setUserId] = useState(() => {
+    const savedSession = localStorage.getItem('ooo_party_session');
+  return savedSession ? parseInt(savedSession, 10) : null;
+  }); 
+  
+  const [playerState, setPlayerState] = useState(null); 
+  const [completedCount, setCompletedCount] = useState(0); 
+  const [loading, setLoading] = useState(false); // Default to false initially
+  const [dbError, setDbError] = useState(null); 
 
-  useEffect(() => { 
-    const savedName = localStorage.getItem('mystery_character_name'); 
-    const savedPin = localStorage.getItem('mystery_character_pin'); 
-    
-    if (savedName && savedPin) { 
-      fetchUserProfile(savedName, savedPin); 
-    } 
-  }, []); 
+  // Handles real-time verification handshake from Login.jsx
+  const handleCustomLogin = async (submittedName, submittedPassword, callback) => {
+    setLoading(true);
 
-  useEffect(() => { 
-    if (character) {
-      async function fetchCurrentAlert() { 
-        const { data } = await supabase.from('active_broadcast').select('message_text').eq('id', 1).maybeSingle(); 
-        if (data) setBroadcastMessage(data.message_text); 
-      } 
-      fetchCurrentAlert(); 
+    let { data, error } = await supabase
+      .from('player')
+      .select('id')
+      .ilike('character_name', submittedName)
+      .eq('password', submittedPassword)
+      .maybeSingle();
 
-      const alertSub = supabase 
-        .channel('live-alerts') 
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'active_broadcast' }, (payload) => { 
-          setBroadcastMessage(payload.new.message_text); 
-        }) 
-        .subscribe(); 
-
-      return () => supabase.removeChannel(alertSub); 
+    if (data) {
+      localStorage.setItem('ooo_party_session', data.id.toString()); // Save session for persistence
+      setUserId(data.id); // Triggers our database engine subscription hook below!
+      callback(true); // Tell the login prompt it succeeded
+    } else {
+      setLoading(false);
+      callback(false); // Tell the login prompt it failed
     }
-  }, [character]); 
-
-  useEffect(() => { 
-    if (character) {
-      const globalSub = supabase.channel('mansion-pulse') 
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'players' }, (payload) => { 
-          if (payload.old.is_alive === true && payload.new.is_alive === false) { 
-            triggerBanner(`🚨 MEDICAL EMERGENCY: ${payload.new.character_name} has flatlined.`); 
-          } 
-        }) 
-        .subscribe();
-
-      return () => supabase.removeChannel(globalSub); 
-    }
-  }, [character]); 
-  async function fetchUserProfile(name, pin) { 
-    const { data } = await supabase 
-      .from('players') 
-      .select('*') 
-      .ilike('character_name', name) 
-      .eq('passcode', pin) 
-      .maybeSingle(); 
-
-    if (data) { 
-      setCharacter(data); 
-      setActiveTab('dashboard'); 
-      setErrorMsg(''); 
-    } else { 
-      setErrorMsg('Access Denied. Character name or security passcode is invalid.'); 
-      localStorage.removeItem('mystery_character_name'); 
-      localStorage.removeItem('mystery_character_pin'); 
-    } 
-  } 
-
-  const triggerBanner = (msg) => {
-    setGlobalBanner(msg);
-    setTimeout(() => setGlobalBanner(null), 7000); 
   };
 
-  const handleLogin = (e) => { 
-    e.preventDefault(); 
-    if (!loginInput.trim() || !pinInput.trim()) return; 
+  useEffect(() => { 
+    if (!userId) return; // Wait to execute until a numeric pin is input successfully
 
-    localStorage.setItem('mystery_character_name', loginInput.trim()); 
-    localStorage.setItem('mystery_character_pin', pinInput.trim()); 
-    
-    fetchUserProfile(loginInput.trim(), pinInput.trim()); 
-  }; 
+    setLoading(true);
+    const fetchPlayerState = async () => { 
+      let { data, error } = await supabase 
+        .from('player') 
+        .select(`id, player_name, character_name, role, is_paused, paused_until, is_kidnapped, last_minigame_completed, minigame_count, games_finished, player_background, current_active_minigame`) 
+        .eq('id', userId) 
+        .maybeSingle(); 
 
-  const handleLogout = () => { 
-    localStorage.removeItem('mystery_character_name'); 
-    localStorage.removeItem('mystery_character_pin'); 
-    setCharacter(null); 
-    setLoginInput(''); 
-    setPinInput(''); 
-  }; 
-  if (!character) { 
-    return ( 
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-950 p-6 text-white text-center"> 
-        <div className="max-w-md w-full space-y-6 bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-2xl"> 
-          <h1 className="text-3xl font-extrabold text-red-500 tracking-wider uppercase">Mansion Mystery</h1> 
-          <p className="text-slate-400 text-sm">Who are you tonight?</p> 
-          <form onSubmit={handleLogin} className="space-y-4"> 
-            <div> 
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 text-left block mb-1">Character Alias Name</label> 
-              <input type="text" placeholder="Your character name here:" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} className="w-full p-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500" /> 
-            </div> 
-            <div> 
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 text-left block mb-1">4-Digit Security Passcode</label> 
-              <input type="password" inputMode="numeric" placeholder="••••" maxLength={4} value={pinInput} onChange={(e) => setPinInput(e.target.value)} className="w-full p-3 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 tracking-widest font-mono text-center" /> 
-            </div> 
-            {errorMsg && <p className="text-red-500 text-xs font-semibold">{errorMsg}</p>} 
-            <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg font-bold tracking-wide uppercase transition mt-2 text-xs"> 
-              Decrypt Case Files 🔓
-            </button> 
-          </form>
-        </div> 
-      </div> 
-    ); 
+      if (error) { 
+        setDbError(error.message); 
+      } else if (data) { 
+        setPlayerState(data); 
+        setCompletedCount(data.minigame_count || 0); 
+      } 
+      setLoading(false); 
+    }; 
+
+    fetchPlayerState(); 
+
+const stateChannel = supabase
+  .channel(`live_game_${userId}`)
+  .on('postgres_changes', { 
+    event: 'UPDATE', 
+    schema: 'public', 
+    table: 'player', 
+    filter: `id=eq.${userId}` 
+  }, (payload) => { 
+    if (payload.new) {
+      setPlayerState(payload.new); 
+      setCompletedCount(payload.new.minigame_count || 0); 
+    }
+  }) 
+  .subscribe();
+
+
+    return () => supabase.removeChannel(stateChannel); 
+  }, [userId]); 
+
+  // --- 1. IF NO USER ID PIN ENTERED, SHOW LOGIN CARD ---
+  if (!userId) {
+    return (
+      <div 
+        className="min-h-screen w-full bg-cover bg-center bg-fixed flex items-center justify-center"
+        style={{ backgroundImage: `url('/assets/default-ooo-background.png')` }}
+      >
+        <Login onLoginSuccess={handleCustomLogin} />
+      </div>
+    );
+  }
+
+  // --- 2. STANDARD STATE RENDERING CONTINUES DOWN HERE --- 
+  if (loading) return <div className="text-white text-center mt-20">Decoding Profile Sync...</div>; 
+  if (dbError) return <div className="text-red-400 text-center mt-20">💥 Connection Failed: {dbError}</div>; 
+  if (!playerState) return <div className="text-amber-400 text-center mt-20">🕵️‍♂️ Sync Verification Error</div>;
+
+  if (playerState.current_active_minigame) { 
+    return <MinigameOverlay minigameId={playerState.current_active_minigame} userId={userId} />; 
   } 
 
-  // =========================================================================
-  // 4. RENDER SCREEN BLOCK B: MAIN HUD DASHBOARD DECK (If verified)
-  // =========================================================================
   return ( 
-    <div className="flex flex-col h-screen bg-slate-950 text-white font-sans overflow-hidden"> 
-      
-      {/* FLOATING IN-APP POPUP NOTIFICATION DECK */}
-      {globalBanner && (
-        <div className="fixed top-4 left-4 right-4 bg-amber-600 p-3 rounded-xl border border-amber-500 shadow-2xl z-50 text-xs font-black text-center animate-slide-down">
-          {globalBanner}
-        </div>
-      )}
-
-      {/* SYSTEM FEED TAPE */}
-      <div className="bg-red-600 p-3 text-center font-bold text-sm tracking-wide shadow-md"> 
-        {broadcastMessage} 
+    <div 
+      className="min-h-screen w-full overflow-y-auto bg-cover bg-center bg-no-repeat bg-fixed transition-all duration-500" 
+      style={{ backgroundImage: `url('${playerState.player_background || ""}')` }} 
+    > 
+      {/* Dynamic Header Display Card */}
+      <div className="h-screen w-full flex flex-col justify-between p-8 bg-gradient-to-b from-black/60 via-transparent to-black/80"> 
+        <div className="backdrop-blur-md bg-black/40 p-6 rounded-2xl max-w-sm border border-white/10 mt-10"> 
+          <h1 className="text-3xl font-extrabold text-white uppercase">{playerState.player_name}</h1> 
+          <p className="text-xl font-medium text-slate-300 mt-1 uppercase tracking-wider italic">Character: {playerState.character_name}</p> 
+          <p className="text-xl font-medium text-amber-400 mt-1 uppercase tracking-wider">Role: {playerState.role}</p> 
+          <div className="mt-4"> 
+            <span className="bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-sm">{completedCount} PTS</span> 
+          </div> 
+        </div> 
+        <div className="w-full text-center text-white/60 text-sm font-semibold tracking-widest animate-bounce mb-6">SCROLL DOWN FOR STORY ↓</div> 
       </div> 
 
-      {/* CORE DISPLAY PORT CONTAINER */} 
-      <main className="flex-1 overflow-y-auto p-6 pb-28"> 
-        
-        {/* DASHBOARD TAB ROOT */} 
-        {activeTab === 'dashboard' && ( 
-          <div className="space-y-6"> 
-            <div className="flex justify-between items-center"> 
-              <h1 className="text-xl font-bold tracking-widest uppercase text-slate-400">Case Files</h1> 
-              <button onClick={handleLogout} className="text-xs text-red-400 bg-red-950/30 px-3 py-1 rounded-md border border-red-900/50">Leave Game</button> 
-            </div> 
-            
-            <div className="bg-slate-900 p-5 rounded-xl border border-slate-800"> 
-              <p className="text-xs text-slate-500 uppercase font-bold">Logged In As</p> 
-              <h2 className="text-2xl font-black text-indigo-400">{character.character_name}</h2> 
-              
-              <div className="mt-4 pt-4 border-t border-slate-800"> 
-                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${ 
-                  { 
-                    murderer: 'bg-red-600 text-white', 
-                    accomplice: 'bg-orange-600 text-white', 
-                    imposter: 'bg-yellow-600 text-white', 
-                    bystander: 'bg-green-600 text-white', 
-                    medium: 'bg-purple-600 text-white' 
-                  }[character.role] || 'bg-slate-800 text-slate-300' 
-                }`}> 
-                  Role: {character.role} 
-                </span> 
-              </div> 
-            </div> 
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-2 mt-4">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider">Secret Dossier & Motive</h3>
-                <span className="text-[9px] bg-indigo-950 text-indigo-400 font-mono px-2 py-0.5 rounded border border-indigo-900/30 uppercase">
-                  Classified
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 font-serif leading-relaxed italic bg-slate-950 p-4 rounded-lg border border-slate-900/50">
-                "{character.description || "Your background files are being compiled by management..."}"
-              </p>
-            </div>
-            {character.role === 'imposter' && character.is_alive && ( 
-              <div className="mt-6 pt-6 border-t border-slate-800"> 
-                <ImposterDash currentCharacter={character} /> 
-              </div> 
-            )} 
-          </div> 
-        )} 
+      <div className="h-[60vh] w-full" /> 
 
-        {/* COMPONENT ELEMENT DISPLAY TILES */} 
-        {activeTab === 'notes' && character.is_alive && ( 
-          <NotesPage currentCharacter={character} /> 
-        )} 
-        
-        {activeTab === 'evidence' && character.is_alive && (
-          <EvidencePage currentCharacter={character} />
-        )}
-        {activeTab === 'votes' && character.is_alive && (
-          <VotingBooth currentCharacter={character} />
-        )}
-        {activeTab === 'afterlife' && !character.is_alive && (
-          <AfterlifePage currentCharacter={character} />
-        )}
-        {activeTab === 'attendees' && (
-          <AttendeeList currentCharacter={character} />
-        )}
-        {activeTab === 'host-panel' && character.role === 'host' && (
-          <HostPanel />
-        )}
-        {activeTab === 'seance' && character.role === 'medium' && (
-          <MediumRoom currentCharacter={character} />
-        )}
-        {activeTab === 'infirmary' && character.role === 'nurse' && (
-          <NursePanel currentCharacter={character} /> 
-        )}
-        {activeTab === 'execute-deck' && character.role === 'murderer' && character.is_alive && (
-          <MurdererDash currentCharacter={character} />
-        )}
-        {activeTab === 'accomplice-deck' && character.role === 'accomplice' && character.is_alive && ( 
-          <AccompliceBox currentCharacter={character} /> 
-        )}
-        {activeTab === 'conspiracy-deck' && character.role === 'accomplice' && character.is_alive && (
-          <AccompliceBox currentCharacter={character} />
-        )}
-      </main>
-      <NavBar activeTab={activeTab} setActiveTab={setActiveTab} currentCharacter={character} />
-    </div>
-  );
+      {/* Role Content Routers */}
+      <div className="w-full max-w-2xl mx-auto px-6 pb-32">
+        <div className="backdrop-blur-xl bg-slate-950/90 border border-white/10 rounded-3xl p-8 shadow-2xl text-gray-200 space-y-8">
+          <div className="border-b border-white/10 pb-4">
+            <h2 className="text-2xl font-black text-white uppercase tracking-wider">Your Mission</h2>
+          </div>
+          <button
+            onClick={() => {
+              localStorage.removeItem('ooo_party_session'); // Clear the browser vault
+              window.location.reload(); // Hard-refresh the page to show the login screen again
+            }}
+            className="mt-8 text-xs text-gray-500 hover:text-rose-400 underline uppercase tracking-widest block mx-auto"
+          >
+            Logout / Reset Terminal
+          </button>
+          {playerState.role === 'Thief' && <Thief />}
+          {playerState.role === 'Liar' && <Liar playerState={playerState} />}
+          {playerState.role === 'Priest' && <Priest playerState={playerState} />}
+          {playerState.role === 'Kidnapper' && <Kidnapper />}
+          {playerState.role === 'Interrogator' && <Interrogator completedCount={completedCount} />}
+          {playerState.role === 'hint giver' && <HintGiver currentGmId={userId}/>}
+        </div>
+      </div>
+    </div> 
+  ); 
 }
