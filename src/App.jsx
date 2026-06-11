@@ -148,79 +148,81 @@ export default function App() {
   // --- 3. DYNAMIC TIMELINE STREAM DISPLAY GRAPHICS ---
   const backgroundUrl = playerState.player_background || '/assets/default-ooo-background.png'; 
 
-  return ( 
+  return (
+  // The outer wrapper is now relatively positioned and removes background properties from itself
+  <div className="relative min-h-screen w-full overflow-y-auto text-gray-200 transition-all duration-500">
+    
+    {/* FIXED BACKGROUND LAYER FIX */}
+    {/* This element stays completely still, fits mobile viewports perfectly, and prevents jumping */}
     <div 
-      className="min-h-screen w-full overflow-y-auto bg-cover bg-center bg-no-repeat bg-fixed transition-all duration-500" 
-      style={{ backgroundImage: `url('${backgroundUrl}')` }} 
-    > 
-      {/* Dynamic Header Display Card */} 
-      <div className="h-screen w-full flex flex-col justify-between p-8 bg-gradient-to-b from-black/60 via-transparent to-black/80"> 
-        <div className="backdrop-blur-md bg-black/40 p-6 rounded-2xl max-w-sm border border-white/10 mt-10"> 
-          <h1 className="text-3xl font-extrabold text-white uppercase">{playerState.player_name}</h1> 
-          <p className="text-xl font-medium text-slate-300 mt-1 uppercase tracking-wider italic">Character: {playerState.character_name}</p> 
-          <p className="text-xl font-medium text-amber-400 mt-1 uppercase tracking-wider">Role: {playerState.role}</p> 
-          <div className="mt-4"> 
-            <span className="bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-sm">{completedCount} PTS</span> 
-          </div> 
-        </div> 
-        <div className="w-full text-center text-white/60 text-sm font-semibold tracking-widest animate-bounce mb-6">SCROLL DOWN FOR STORY ↓</div> 
-      </div> 
+      className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: `url('${backgroundUrl}')` }}
+    />
 
-      <div className="h-[60vh] w-full" /> 
-
-      {/* Role Content Routers Box panel */} 
-      <div className="w-full max-w-2xl mx-auto px-6 pb-32"> 
-        <div className="backdrop-blur-xl bg-slate-950/90 border border-white/10 rounded-3xl p-8 shadow-2xl text-gray-200 space-y-8"> 
-          <div className="border-b border-white/10 pb-4 flex justify-between items-center"> 
-            <h2 className="text-2xl font-black text-white uppercase tracking-wider">Your Mission</h2> 
-            {playerState.role !== 'Hint Giver' && (
-              <span className="text-xs text-amber-400 font-mono font-bold animate-pulse">
-                System Hijack loop active
-              </span>
-            )}
-          </div> 
-          
-          {playerState.role === 'thief' && <Thief />} 
-          {playerState.role === 'liar' && <Liar playerState={playerState} />} 
-          {playerState.role === 'priest' && <Priest playerState={playerState} />} 
-          {playerState.role === 'kidnapper' && <Kidnapper />} 
-          {playerState.role === 'interrogator' && <Interrogator completedCount={completedCount} />} 
-          {playerState.role === 'hint giver' && <HintGiver currentGmId={userId}/>} 
-
-          <button 
-            onClick={() => { 
-              localStorage.removeItem('ooo_party_session'); 
-              window.location.reload(); 
-            }} 
-            className="mt-8 text-xs text-gray-500 hover:text-rose-400 underline uppercase tracking-widest block mx-auto pt-4 border-t border-white/5 w-full text-center" 
-          > 
-            Logout / Reset Terminal 
-          </button> 
-        </div> 
-      </div>
-      {showVictoryModal && playerState.role !== 'Hint Giver' && (
-        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-6">
-          <div className="w-full max-w-sm border-4 border-amber-500/30 bg-slate-900 rounded-3xl p-8 shadow-2xl text-center space-y-4 animate-fadeIn">
-            <span className="text-6xl block animate-bounce">🏆</span>
-            <h3 className="text-3xl font-black text-amber-400 tracking-widest uppercase">CORE OVERRIDE</h3>
-            <p className="text-xs text-emerald-400 font-bold uppercase tracking-wide">All Cooldown Modules Settled!</p>
-            
-            <div className="bg-slate-950/60 border border-white/5 p-4 rounded-xl text-left mt-2 space-y-1">
-              <span className="font-mono text-[10px] text-amber-300 font-bold block uppercase tracking-wider">🔓 Vault Token Segment Decoded:</span>
-              <p className="text-xs text-gray-300 leading-relaxed">You have proved your core capability. Here are the last two numbers of your four-digit final combinations key:</p>
-              <p className="font-mono text-3xl text-center text-emerald-400 tracking-widest bg-black/80 py-3 rounded-xl border border-emerald-500/20 font-black mt-2">
-                XX-42
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowVictoryModal(false)} 
-              className="mt-2 w-full bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black py-3 rounded-xl uppercase tracking-widest text-xs transition-all shadow-lg shadow-amber-500/10"
-            >
-              Close
-            </button>
-          </div>
+    {/* Dynamic Header Display Card */}
+    {/* Changed h-screen to h-[100dvh] (Dynamic Viewport Height) so it accounts for mobile browser address bars perfectly */}
+    <div className="h-[100dvh] w-full flex flex-col justify-between p-8 bg-gradient-to-b from-black/60 via-transparent to-black/80">
+      <div className="backdrop-blur-md bg-black/40 p-6 rounded-2xl max-w-sm border border-white/10 mt-10">
+        <h1 className="text-3xl font-extrabold text-white uppercase">{playerState.player_name}</h1>
+        <p className="text-xl font-medium text-slate-300 mt-1 uppercase tracking-wider italic">Character: {playerState.character_name}</p>
+        <p className="text-xl font-medium text-amber-400 mt-1 uppercase tracking-wider">Role: {playerState.role}</p>
+        <div className="mt-4">
+          <span className="bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-sm">{completedCount} PTS</span>
         </div>
-      )}
-    </div> 
-  ); 
+      </div>
+      <div className="w-full text-center text-white/60 text-sm font-semibold tracking-widest animate-bounce mb-6">SCROLL DOWN FOR STORY ↓</div>
+    </div>
+
+    <div className="h-[60vh] w-full" />
+
+    {/* Role Content Routers Box panel */}
+    <div className="w-full max-w-2xl mx-auto px-6 pb-32">
+      <div className="backdrop-blur-xl bg-slate-950/90 border border-white/10 rounded-3xl p-8 shadow-2xl space-y-8">
+        <div className="border-b border-white/10 pb-4 flex justify-between items-center">
+          <h2 className="text-2xl font-black text-white uppercase tracking-wider">Your Mission</h2>
+          {playerState.role !== 'Hint Giver' && (
+            <span className="text-xs text-amber-400 font-mono font-bold animate-pulse">
+              System Hijack loop active
+            </span>
+          )}
+        </div>
+
+        {playerState.role === 'thief' && <Thief />}
+        {playerState.role === 'liar' && <Liar playerState={playerState} />}
+        {playerState.role === 'priest' && <Priest playerState={playerState} />}
+        {playerState.role === 'kidnapper' && <Kidnapper />}
+        {playerState.role === 'interrogator' && <Interrogator completedCount={completedCount} />}
+        {playerState.role === 'hint giver' && <HintGiver currentGmId={userId}/>}
+
+        <button 
+          onClick={() => { localStorage.removeItem('ooo_party_session'); window.location.reload(); }}
+          className="mt-8 text-xs text-gray-500 hover:text-rose-400 underline uppercase tracking-widest block mx-auto pt-4 border-t border-white/5 w-full text-center"
+        >
+          Logout / Reset Terminal
+        </button>
+      </div>
+    </div>
+
+    {/* Victory Modal */}
+    {showVictoryModal && playerState.role !== 'Hint Giver' && (
+      <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-6">
+        <div className="w-full max-w-sm border-4 border-amber-500/30 bg-slate-900 rounded-3xl p-8 shadow-2xl text-center space-y-4 animate-fadeIn">
+          <span className="text-6xl block animate-bounce">🏆</span>
+          <h3 className="text-3xl font-black text-amber-400 tracking-widest uppercase">CORE OVERRIDE</h3>
+          <p className="text-xs text-emerald-400 font-bold uppercase tracking-wide">All Cooldown Modules Settled!</p>
+          <div className="bg-slate-950/60 border border-white/5 p-4 rounded-xl text-left mt-2 space-y-1">
+            <span className="font-mono text-[10px] text-amber-300 font-bold block uppercase tracking-wider">%F0%9F%94%93 Vault Token Segment Decoded:</span>
+            <p className="text-xs text-gray-300 leading-relaxed">You have proved your core capability. Here are the last two numbers of your four-digit final combinations key:</p>
+            <p className="font-mono text-3xl text-center text-emerald-400 tracking-widest bg-black/80 py-3 rounded-xl border border-emerald-500/20 font-black mt-2">
+              XX-42
+            </p>
+          </div>
+          <button onClick={() => setShowVictoryModal(false)} className="mt-2 w-full bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black py-3 rounded-xl uppercase tracking-widest text-xs transition-all shadow-lg shadow-amber-500/10" >
+            Close
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+  );
 }
