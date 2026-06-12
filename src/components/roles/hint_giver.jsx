@@ -91,24 +91,21 @@ const updateThiefHintLevel = async (playerId, currentLevel, action) => {
   };
 
 const toggleKidnap = async (playerId, currentStatus) => {
-  const isNowKidnapped = !currentStatus;
-  
-  // If they are being kidnapped, erase their game timer so games don't pop up.
-  // If they are being released, give them a fresh 10 minute countdown buffer.
-  const nextGameTime = isNowKidnapped 
-    ? null 
-    : new Date(Date.now() + 10 * 60000).toISOString();
-  
-  const timerStatus = isNowKidnapped ? 'disrupted' : 'active_countdown';
+  try {
+    const { data, error } = await supabase
+      .from('player')
+      .update({ is_kidnapped: !currentStatus })
+      .eq('id', playerId)
+      .select(); // Forces Supabase to return the newly updated data
 
-  await supabase
-    .from('player')
-    .update({ 
-      is_kidnapped: isNowKidnapped,
-      next_game_at: nextGameTime,
-      game_timer_status: timerStatus
-    })
-    .eq('id', playerId);
+    if (error) {
+      alert(`Supabase Error: ${error.message}`);
+    } else {
+      alert(`Success! Player kidnapping status flipped to: ${!currentStatus}`);
+    }
+  } catch (err) {
+    alert(`System Error: ${err.message}`);
+  }
 };
 
 

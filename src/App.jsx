@@ -84,44 +84,57 @@ export default function App() {
       .eq('id', playerId); 
   }; 
 
-  useEffect(() => { 
-    if (!userId) return; 
+useEffect(() => {
+  if (!userId) return;
+  setLoading(true);
 
-    setLoading(true); 
-    const fetchPlayerState = async () => { 
-      let { data, error } = await supabase 
-        .from('player') 
-        .select(`id, player_name, character_name, role, is_paused, paused_until, is_kidnapped, last_minigame_completed, minigame_count, games_finished, player_background, current_active_minigame`) 
-        .eq('id', userId) 
-        .maybeSingle(); 
+  const fetchPlayerState = async () => {
+    let { data, error } = await supabase
+      .from('player')
+      .select(`id, player_name, character_name, role, is_paused, paused_until, is_kidnapped, last_minigame_completed, minigame_count, games_finished, player_background, current_active_minigame`)
+      .eq('id', userId)
+      .maybeSingle();
+      
+    if (error) {
+      setDbError(error.message);
+    } else if (data) {
+      setPlayerState(data);
+      setCompletedCount(data.minigame_count || 0);
+      evaluateCooldownState(data);
+    }
+    setLoading(false);
+  };
 
-      if (error) { 
-        setDbError(error.message); 
-      } else if (data) { 
-        setPlayerState(data); 
-        setCompletedCount(data.minigame_count || 0); 
-        evaluateCooldownState(data); 
-      } 
-      setLoading(false); 
-    }; 
+  fetchPlayerState();
 
-    fetchPlayerState(); 
+  // Open persistent live update synchronizing subscription channel socket
+  const stateChannel = supabase
+    .channel(`live_game_${userId}`)
+    .on('postgres_changes', { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'player', 
+      filter: `id=eq.${userId}` 
+    }, (payload) => {
+      // 🚨 ADD THIS TESTING ALERT BLOCK RIGHT HERE
+      alert(`REALTIME SIGNAL CAUGHT! New Kidnapped Status: ${payload.new?.is_kidnapped}`);
+      console.log('Realtime payload update received:', payload);
 
-    // Open persistent live update synchronizing subscription channel socket
-    const stateChannel = supabase 
-      .channel(`live_game_${userId}`) 
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'player', filter: `id=eq.${userId}` }, 
-        (payload) => { 
-          if (payload.new) { 
-            setPlayerState(payload.new); 
-            setCompletedCount(payload.new.minigame_count || 0); 
-            evaluateCooldownState(payload.new); 
-          } 
-        }
-      ).subscribe(); 
+      if (payload.new) {
+        setPlayerState(payload.new);
+        setCompletedCount(payload.new.minigame_count || 0);
+        evaluateCooldownState(payload.new);
+      }
+    })
+    .subscribe((status) => {
+      // 🚨 ADDITIONAL TEST: This logs the actual socket status to your desktop console
+      console.log(`Subscription status for channel live_game_${userId}:`, status);
+    });
 
-    return () => supabase.removeChannel(stateChannel); 
-  }, [userId]); 
+  return () => {
+    supabase.removeChannel(stateChannel);
+  };
+}, [userId]);
 
   // --- 1. IF NO USER ID PIN ENTERED, SHOW LOGIN CARD --- 
   if (!userId) { 
