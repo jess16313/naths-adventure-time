@@ -187,7 +187,7 @@ export default function App() {
           )}
         </div>
 
-        {playerState.role === 'thief' && <Thief />}
+        {playerState.role === 'thief' && <Thief playerState={playerState} />}
         {playerState.role === 'liar' && <Liar playerState={playerState} />}
         {playerState.role === 'priest' && <Priest playerState={playerState} />}
         {playerState.role === 'kidnapper' && <Kidnapper />}
