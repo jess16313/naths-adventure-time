@@ -1,29 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-import MinigameOverlay from '../minigame';
 
-export default function HintGiver({currentGmId}) {
+export default function HintGiver({ currentGmId }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [gmTestingLevel, setGmTestingLevel] = useState(0);
-  // 1. Fetch the full list of players and listen for live updates
-  useEffect(() => {
-    const fetchAllPlayers = async () => {
-      let { data } = await supabase
-        .from('player')
-        .select('*')
-        .order('character_name', { ascending: true });
-      if (data) setPlayers(data);
-      setLoading(false);
-    };
 
+  // 1. Fetch full user registry to populate target selections
+  const fetchAllPlayers = async () => {
+    let { data } = await supabase
+      .from('player')
+      .select('*')
+      .order('character_name', { ascending: true });
+    if (data) setPlayers(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchAllPlayers();
 
-    // Subscribe to a global update channel to watch everyone's scores change live
     const globalChannel = supabase
       .channel('gm_global_sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'player' }, (payload) => {
-        setPlayers((prevPlayers) =>
+        setPlayers((prevPlayers) => 
           prevPlayers.map((p) => (p.id === payload.new.id ? payload.new : p))
         );
       })
@@ -32,354 +30,140 @@ export default function HintGiver({currentGmId}) {
     return () => supabase.removeChannel(globalChannel);
   }, []);
 
-const updateThiefHintLevel = async (playerId, currentLevel, action) => {
-  // 1. Force the value to a real number. If it is null or undefined, default to 1
-  let cleanLevel = currentLevel !== null && currentLevel !== undefined ? Number(currentLevel) : 1;
-  
-  // 2. Double check safety fallback to prevent NaN errors
-  if (isNaN(cleanLevel)) {
-    cleanLevel = 1;
-  }
+  const updateThiefHintLevel = async (playerId, currentLevel, action) => {
+    let cleanLevel = currentLevel !== null && currentLevel !== undefined ? Number(currentLevel) : 1;
+    if (isNaN(cleanLevel)) cleanLevel = 1;
 
-  // 3. Compute the next step value
-  let nextLevel = action === 'next' ? cleanLevel + 1 : cleanLevel - 1;
-  if (nextLevel < 1) nextLevel = 1;
+    let nextLevel = action === 'next' ? cleanLevel + 1 : cleanLevel - 1;
+    if (nextLevel < 1) nextLevel = 1;
 
-  console.log(`Attempting to update player ${playerId} to level:`, nextLevel);
-
-  // 4. Run the update and catch errors explicitly
-  const { error } = await supabase
-    .from('player')
-    .update({ thief_number: nextLevel })
-    .eq('id', playerId);
-
-  if (error) {
-    console.error("Supabase Error:", error);
-    alert(`Database Error: ${error.message} \nCode: ${error.code}`);
-  } else {
-    console.log("Database updated successfully!");
-  }
-};
-
-  const initializeGlobalGameTimer = async () => {
-  // Calculate exactly 15 minutes from the exact millisecond of clicking
-  const fifteenMinutesFromNow = new Date(Date.now() + 15 * 60000).toISOString();
-
-  // Update ALL players who are actively in the game match
-  const { error } = await supabase
-    .from('player')
-    .update({ 
-      next_game_at: fifteenMinutesFromNow,
-      game_timer_status: 'waiting_initial'
-    })
-    .not('role', 'eq', 'hint giver'); // Don't give the GM minigames
-
-  if (error) {
-    alert("Failed to initialize system clock: " + error.message);
-  } else {
-    alert("🚀 Match Clock Initialized! First wave of minigames triggers in 15 minutes.");
-  }
-};
-
-
-  // 2. Administrative Database Command Hooks
-  const triggerMinigame = async (playerId, levelId) => {
-    await supabase
+    const { error } = await supabase
       .from('player')
-      .update({ current_active_minigame: levelId })
+      .update({ thief_number: nextLevel })
       .eq('id', playerId);
-  };
-
-const toggleKidnap = async (playerId, currentStatus) => {
-  try {
-    const { data, error } = await supabase
-      .from('player')
-      .update({ is_kidnapped: !currentStatus })
-      .eq('id', playerId)
-      .select(); // Forces Supabase to return the newly updated data
 
     if (error) {
-      alert(`Supabase Error: ${error.message}`);
-    } else {
-      alert(`Success! Player kidnapping status flipped to: ${!currentStatus}`);
+      alert(`Database Error: ${error.message}`);
     }
-  } catch (err) {
-    alert(`System Error: ${err.message}`);
-  }
-};
+  };
 
+  // ⏳ INITIALIZE GLOBAL CLOCK PROTOCOL
+  const initializeGlobalGameTimer = async () => {
+    // Calculate exactly 15 minutes from the exact millisecond of clicking
+    const fifteenMinutesFromNow = new Date(Date.now() + 15 * 60000).toISOString();
 
-
-  const freezePlayer = async (playerId) => {
-    // Freezes a player's interface for exactly 5 minutes
-    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60000).toISOString();
+    // 1. First update the GM profile row itself so it has a reference point
     await supabase
       .from('player')
-      .update({ is_paused: true, paused_until: fiveMinutesFromNow })
-      .eq('id', playerId);
+      .update({ game_timer_status: 'active' })
+      .eq('id', currentGmId);
+
+    // 2. Set the countdown anchor points for ALL players
+    const { error } = await supabase
+      .from('player')
+      .update({ 
+        next_game_at: fifteenMinutesFromNow, 
+        game_timer_status: 'waiting_initial' 
+      });
+
+    if (error) {
+      alert("Failed to initialize system clock: " + error.message);
+    } else {
+      alert("🚀 Master Match Clock Initialized! First wave of minigames triggers in exactly 15 minutes.");
+    }
+  };
+
+  const triggerMinigame = async (playerId, levelId) => {
+    await supabase.from('player').update({ current_active_minigame: levelId }).eq('id', playerId);
+  };
+
+  const toggleKidnap = async (playerId, currentStatus) => {
+    await supabase.from('player').update({ is_kidnapped: !currentStatus }).eq('id', playerId);
+  };
+
+  const freezePlayer = async (playerId) => {
+    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60000).toISOString();
+    await supabase.from('player').update({ is_paused: true, paused_until: fiveMinutesFromNow }).eq('id', playerId);
   };
 
   const resetPlayer = async (playerId) => {
-    await supabase
-      .from('player')
-      .update({ is_paused: false, paused_until: null, is_kidnapped: false })
-      .eq('id', playerId);
+    await supabase.from('player').update({ is_paused: false, paused_until: null, is_kidnapped: false, game_timer_status: null, next_game_at: null, current_active_minigame: null }).eq('id', playerId);
   };
 
-  if (loading) return <div className="text-amber-400 font-mono text-center">Loading Party Data Stream...</div>;
+  if (loading) return <div className="text-amber-500 font-mono text-center">Loading Tactical Command Feed...</div>;
+
+  const gmRow = players.find(p => p.id === currentGmId);
+  const isGameRunning = players.some(p => p.game_timer_status === 'waiting_initial' || p.game_timer_status === 'active');
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Header Banner */}
-      <div className="border-b border-amber-500/20 pb-2">
-        <h3 className="text-xl font-black text-amber-400 flex items-center gap-2">👑 GAME MASTER CONTROL TERMINAL</h3>
-        <p className="text-xs text-gray-400 mt-1">You are the Hint Giver. Use this grid tool to orchestrate the Ooo party mechanics live.</p>
-      </div>
-
-          <div>
-          <button
-            onClick={async () => {
-              // Target YOUR OWN row ID to inject Level 1 and open the game layout screen
-              setGmTestingLevel(1);
-            }}
-            className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 text-xs font-black tracking-widest px-4 py-2.5 rounded-xl uppercase shadow-lg shadow-amber-500/15 transition-all"
-          >
-            🎮 Play / Test Puzzle #1
-          </button>
+    <div className="space-y-6 text-gray-200 animate-fadeIn">
+      {/* 🛠️ GLOBAL SYSTEM CONTROLS CARD BANNER */}
+      <div className="bg-slate-900 border border-amber-500/20 rounded-2xl p-5 space-y-4">
+        <div>
+          <h3 className="text-sm font-mono font-black text-amber-400 uppercase tracking-widest">// Administrative Mainframe Controls</h3>
+          <p className="text-xs text-gray-400 mt-1">Initialize or force cycle status elements globally over active connections.</p>
         </div>
 
-      {/* --- PLAYER DATABASE GRID MAP --- */}
-      <div className="space-y-4">
+        <button
+          onClick={initializeGlobalGameTimer}
+          disabled={isGameRunning}
+          className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all text-center border ${
+            isGameRunning 
+              ? 'bg-slate-800 text-gray-500 border-white/5 cursor-not-allowed' 
+              : 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-lg shadow-amber-500/10'
+          }`}
+        >
+          {isGameRunning ? "🔒 Neural Game Loop Active" : "🚀 Start Global 15-Min Match Countdown"}
+        </button>
+      </div>
+
+      {/* 👥 PLAYER FEED DASHBOARD VIEW LIST */}
+      <div className="space-y-3">
+        <h4 className="text-xs font-mono font-bold text-gray-400 uppercase tracking-widest border-b border-white/5 pb-1">Active Client Network Node Registry</h4>
         {players.map((p) => {
-          // Skip showing the Game Master to themselves in the list
-          if (p.role === 'hint giver') return null;
+          if (p.id === currentGmId) return null;
+          const roleLower = p.role?.toLowerCase();
 
           return (
-            <div 
-              key={p.id} 
-              className={`p-4 rounded-2xl border transition-all ${
-                p.is_kidnapped 
-                  ? 'bg-rose-950/40 border-rose-500/40 shadow-md shadow-rose-500/5' 
-                  : p.is_paused 
-                    ? 'bg-purple-950/40 border-purple-500/40'
-                    : 'bg-slate-900/60 border-white/5'
-              }`}
-            >
+            <div key={p.id} className={`p-4 rounded-xl border transition-all ${p.is_kidnapped ? 'bg-red-950/20 border-red-500/30' : 'bg-black/30 border-white/5'}`}>
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-bold text-white text-lg">
-                    {p.character_name} <span className="text-xs text-gray-500 font-normal">({p.player_name || 'Guest'})</span>
-                  </h4>
-                  <div className="flex gap-2 mt-1 text-xs">
-                    <span className="text-amber-400 font-semibold uppercase">{p.role || 'Unassigned'}</span>
-                    <span className="text-gray-500">•</span>
-                    <span className="text-gray-400">Bravery: <strong>{p.minigame_count || 0} PTS</strong></span>
+                  <h5 className="font-bold text-white uppercase text-sm">{p.character_name} <span className="text-[10px] text-gray-500 font-mono normal-case">({p.player_name || 'Guest'})</span></h5>
+                  <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mt-0.5">Role: {p.role || 'Unassigned'} | Pts: {p.minigame_count || 0}</p>
+                  
+                  {/* Status Badges */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {p.is_kidnapped && <span className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase animate-pulse">👺 Kidnapped</span>}
+                    {p.is_paused && <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">🧊 Frozen</span>}
+                    {p.current_active_minigame && <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase animate-bounce">🎮 In Minigame ({p.current_active_minigame})</span>}
+                    {p.game_timer_status === 'waiting_initial' && <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">⏳ Waiting Match Start</span>}
                   </div>
                 </div>
-                <div className="flex gap-2 mt-1 text-xs">
-  <span className="text-amber-400 font-semibold uppercase">{p.role || 'Unassigned'}</span>
-  <span className="text-gray-500">•</span>
-  <span className="text-gray-400">Bravery: <strong>{p.minigame_count || 0} PTS</strong></span>
-</div>
 
-                {/* 🔮 RESPONSIVE CONTROLS PANEL FOR THIEVES ONLY */}
-                {p.role === 'thief' && (
-                  <div className="mt-3 bg-black/30 p-3 rounded-xl border border-emerald-500/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="text-left">
-                      <span className="text-emerald-400 font-mono font-black uppercase tracking-widest block text-[9px]">
-                        Syndicate Track Feed
-                      </span>
-                      <p className="text-slate-300 font-medium text-sm mt-0.5">
-                        Current Crystal Active: <strong className="text-white font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Phase {p.thief_number || 1}</strong>
-                      </p>
+                {/* Individual Actions grid wrapper dropdown block button */}
+                <div className="flex flex-col gap-1.5 text-right">
+                  {roleLower === 'thief' && (
+                    <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5 mb-1 justify-end">
+                      <span className="text-[9px] font-mono text-gray-400 uppercase mr-1">Hint Level:</span>
+                      <button onClick={() => updateThiefHintLevel(p.id, p.thief_number, 'prev')} className="bg-slate-800 text-white px-2 py-0.5 rounded font-black text-xs hover:bg-slate-700">-</button>
+                      <span className="font-mono text-xs font-bold text-amber-400 min-w-[16px] text-center">{p.thief_number || 1}</span>
+                      <button onClick={() => updateThiefHintLevel(p.id, p.thief_number, 'next')} className="bg-slate-800 text-white px-2 py-0.5 rounded font-black text-xs hover:bg-slate-700">+</button>
                     </div>
-                    
-                    {/* Grid forces the buttons to look balanced and be full-width on phone viewports */}
-                    <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:gap-1.5">
-                      <button
-                        onClick={() => updateThiefHintLevel(p.id, p.thief_number, 'prev')}
-                        className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 text-xs sm:text-[10px] font-black px-3 py-2 sm:py-1 rounded-md uppercase text-center transition-all border border-white/5"
-                      >
-                        ◀ Back
-                      </button>
-                      <button
-                        onClick={() => updateThiefHintLevel(p.id, p.thief_number, 'next')}
-                        className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs sm:text-[10px] font-black px-3 py-2 sm:py-1 rounded-md uppercase tracking-wider text-center transition-all shadow-md shadow-emerald-600/10"
-                      >
-                        Advance ▶
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* 🛠️ SYSTEM TIME DEBUGGER CONTROLS */}
-<div className="mt-3 bg-slate-950/40 p-2.5 rounded-xl border border-dashed border-amber-500/20 flex items-center justify-between gap-2">
-  <div className="text-left text-[10px] font-mono">
-    <span className="text-amber-500 block uppercase font-bold">⏱️ Clock Debugger</span>
-    <span className="text-slate-400">
-      Target: {p.next_game_at ? new Date(p.next_game_at).toLocaleTimeString() : 'STOPPED'}
-    </span>
-  </div>
-  
-  <div className="flex gap-1">
-    {/* TEST BUTTON 1: Force game to happen instantly */}
-    <button
-      onClick={async () => {
-        // Set their database target time to 10 seconds ago so their phone triggers a game layout jump immediately
-        const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
-        await supabase
-          .from('player')
-          .update({ next_game_at: tenSecondsAgo, game_timer_status: 'active_countdown' })
-          .eq('id', p.id);
-      }}
-      className="bg-amber-600/20 hover:bg-amber-500 hover:text-slate-950 text-[9px] font-mono font-bold px-2 py-1 rounded text-amber-400 transition-all"
-    >
-      ⚡ Force Game Now
-    </button>
-
-    {/* TEST BUTTON 2: Simulate complete loop cycle */}
-    <button
-      onClick={async () => {
-        // Simulates what happens when they complete a game: sets time forward 10 minutes
-        const tenMinutesFromNow = new Date(Date.now() + 10 * 60000).toISOString();
-        await supabase
-          .from('player')
-          .update({ next_game_at: tenMinutesFromNow, game_timer_status: 'active_countdown' })
-          .eq('id', p.id);
-      }}
-      className="bg-blue-600/20 hover:bg-blue-500 text-blue-400 text-[9px] font-mono font-bold px-2 py-1 rounded transition-all"
-    >
-      ⏩ Fast-Forward 10m
-    </button>
-  </div>
-</div>
-
-
-                {/* Status Badges */}
-                <div className="flex gap-1.5">
-                  {p.is_kidnapped && (
-                    <span className="bg-red-500 text-black font-black text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">Kidnapped</span>
-                  )}
-                  {p.is_paused && (
-                    <span className="bg-purple-500 text-white font-black text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">Frozen</span>
                   )}
                 </div>
               </div>
 
-              {/* --- ACTION GRID CONTROLS --- */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-white/5">
-                
-                {/* 1. Puzzle Injection Control */}
-                <div className="flex flex-col gap-1">
-                  <button 
-                    onClick={() => triggerMinigame(p.id, 1)}
-                    className="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-[11px] font-black uppercase text-gray-300 py-1.5 px-2 rounded-lg transition-all"
-                  >
-                    🚀 Trigger Puzzle
-                  </button>
-                </div>
-
-                {/* 2. Kidnapping Toggle Action */}
-                <button 
-                  onClick={() => toggleKidnap(p.id, p.is_kidnapped)}
-                  className={`text-[11px] font-black uppercase py-1.5 px-2 rounded-lg transition-all ${
-                    p.is_kidnapped 
-                      ? 'bg-rose-500 text-black font-bold' 
-                      : 'bg-slate-800 hover:bg-rose-600 text-gray-300'
-                  }`}
-                >
-                  {p.is_kidnapped ? '🔓 Release' : '👺 Kidnap'}
-                </button>
-
-                {/* 3. Freeze Status Intercept */}
-                <button 
-                  onClick={() => freezePlayer(p.id)}
-                  disabled={p.is_paused}
-                  className="bg-slate-800 hover:bg-purple-600 disabled:opacity-30 text-[11px] font-black uppercase text-gray-300 py-1.5 px-2 rounded-lg transition-all"
-                >
-                  🥶 Freeze (5m)
-                </button>
-
-                {/* 4. Complete Status Cleanup Reset */}
-                <button 
-                  onClick={() => resetPlayer(p.id)}
-                  className="bg-slate-800 hover:bg-slate-700 text-[11px] font-black uppercase text-gray-400 hover:text-white py-1.5 px-2 rounded-lg transition-all"
-                >
-                  🔄 Reset Status
-                </button>
-
+              {/* Action Buttons Matrix Footbar */}
+              <div className="grid grid-cols-4 gap-1.5 mt-3 pt-3 border-t border-white/5">
+                <button onClick={() => triggerMinigame(p.id, (p.minigame_count || 0) + 1)} className="bg-slate-800 hover:bg-emerald-600 hover:text-white text-[9px] font-bold uppercase py-1.5 rounded transition-all">Force Game</button>
+                <button onClick={() => toggleKidnap(p.id, p.is_kidnapped)} className="bg-slate-800 hover:bg-red-600 hover:text-white text-[9px] font-bold uppercase py-1.5 rounded transition-all">{p.is_kidnapped ? "Release" : "Kidnap"}</button>
+                <button onClick={() => freezePlayer(p.id)} className="bg-slate-800 hover:bg-purple-600 hover:text-white text-[9px] font-bold uppercase py-1.5 rounded transition-all">Freeze 5m</button>
+                <button onClick={() => resetPlayer(p.id)} className="bg-slate-900 border border-white/10 hover:bg-rose-900 hover:text-white text-[9px] font-bold uppercase py-1.5 rounded transition-all text-gray-400">Reset System</button>
               </div>
             </div>
           );
         })}
       </div>
-                   {/* 🧩 ENHANCED GM PUZZLE TESTING SUITE */}
-      {/* UPDATE THIS BLOCK AT THE ABSOLUTE BOTTOM OF HINT_GIVER.JSX */}
-        {gmTestingLevel > 0 && (
-          <div className="fixed inset-0 z-50 bg-black flex flex-col pt-16">
-            
-            {/* Admin Command Strip across the top of your test screen */}
-            <div className="bg-slate-900 border-b border-white/10 p-3 flex justify-between items-center px-6">
-              <div className="flex items-center gap-3">
-                <span className="text-xs bg-amber-500 text-slate-950 px-2 py-0.5 rounded font-black uppercase">GM Debug</span>
-                <h4 className="text-sm font-bold text-white uppercase tracking-wider">Testing Level {gmTestingLevel} / 20</h4>
-              </div>
-              
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => {
-                    const current = gmTestingLevel;
-                    setGmTestingLevel(0);
-                    setTimeout(() => setGmTestingLevel(current), 10);
-                  }}
-                  className="bg-slate-800 hover:bg-slate-700 text-gray-300 text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all"
-                >
-                  🔄 Reset Map
-                </button>
-
-                <button 
-                  onClick={() => {
-                    if (gmTestingLevel < 20) {
-                      setGmTestingLevel(prev => prev + 1);
-                    } else {
-                      setGmTestingLevel(0);
-                    }
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all"
-                >
-                  ⏩ Skip Level
-                </button>
-
-                {/* Emergency Close window helper */}
-                <button 
-                  onClick={() => setGmTestingLevel(0)}
-                  className="bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all"
-                >
-                  ✕ Close
-                </button>
-              </div>
-            </div>
-
-            {/* The gameplay viewport area */}
-            <div className="flex-1 relative bg-slate-950">
-              <MinigameOverlay 
-                minigameId={gmTestingLevel} 
-                userId={currentGmId} 
-                onComplete={() => {
-                  if (gmTestingLevel < 20) {
-                    setGmTestingLevel(prev => prev + 1);
-                  } else {
-                    setGmTestingLevel(0);
-                  }
-                }} 
-                // 💥 ADD THIS NEW TRACKING HOOK PROP RIGHT HERE:
-                onExit={() => setGmTestingLevel(0)} 
-              />
-            </div>
-
-          </div>
-        )}
-
     </div>
   );
 }
