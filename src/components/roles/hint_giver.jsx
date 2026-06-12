@@ -73,6 +73,22 @@ export default function HintGiver({ currentGmId }) {
     }
   };
 
+  const togglePlayerStatusFlag = async (playerId, currentStatus, columnName) => {
+    try {
+      const { error } = await supabase
+        .from('player')
+        .update({ [columnName]: !currentStatus }) // Dynamically targets the specific column clicked
+        .eq('id', playerId);
+
+      if (error) {
+        alert(`Failed to update ${columnName}: ` + error.message);
+      }
+    } catch (err) {
+      alert("System Exception: " + err.message);
+    }
+  };
+
+
   const triggerMinigame = async (playerId, levelId) => {
     await supabase.from('player').update({ current_active_minigame: levelId }).eq('id', playerId);
   };
@@ -132,11 +148,16 @@ export default function HintGiver({ currentGmId }) {
                   <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mt-0.5">Role: {p.role || 'Unassigned'} | Pts: {p.minigame_count || 0}</p>
                   
                   {/* Status Badges */}
+                                    {/* Status Badges Row */}
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {p.is_kidnapped && <span className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase animate-pulse">👺 Kidnapped</span>}
                     {p.is_paused && <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">🧊 Frozen</span>}
                     {p.current_active_minigame && <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase animate-bounce">🎮 In Minigame ({p.current_active_minigame})</span>}
                     {p.game_timer_status === 'waiting_initial' && <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">⏳ Waiting Match Start</span>}
+                    
+                    {/* Live Tracker Indicators for Endgame Loops */}
+                    {p.has_all_crystals && <span className="bg-teal-500/10 border border-teal-500/30 text-teal-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">💎 Has Crystals</span>}
+                    {p.has_solved_cypher && <span className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase animate-pulse">🔑 Cypher Cleared</span>}
                   </div>
                 </div>
 
@@ -153,13 +174,43 @@ export default function HintGiver({ currentGmId }) {
                 </div>
               </div>
 
-              {/* Action Buttons Matrix Footbar */}
-              <div className="grid grid-cols-4 gap-1.5 mt-3 pt-3 border-t border-white/5">
-                <button onClick={() => triggerMinigame(p.id, (p.minigame_count || 0) + 1)} className="bg-slate-800 hover:bg-emerald-600 hover:text-white text-[9px] font-bold uppercase py-1.5 rounded transition-all">Force Game</button>
-                <button onClick={() => toggleKidnap(p.id, p.is_kidnapped)} className="bg-slate-800 hover:bg-red-600 hover:text-white text-[9px] font-bold uppercase py-1.5 rounded transition-all">{p.is_kidnapped ? "Release" : "Kidnap"}</button>
-                <button onClick={() => freezePlayer(p.id)} className="bg-slate-800 hover:bg-purple-600 hover:text-white text-[9px] font-bold uppercase py-1.5 rounded transition-all">Freeze 5m</button>
-                <button onClick={() => resetPlayer(p.id)} className="bg-slate-900 border border-white/10 hover:bg-rose-900 hover:text-white text-[9px] font-bold uppercase py-1.5 rounded transition-all text-gray-400">Reset System</button>
+              {/* 🛠️ UPDATED: Action Buttons Matrix Footbar containing our easy toggle triggers */}
+              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/5">
+                
+                {/* Toggle 1: All Crystals Status */}
+                <button 
+                  onClick={() => togglePlayerStatusFlag(p.id, p.has_all_crystals, 'has_all_crystals')}
+                  className={`text-[10px] font-black uppercase py-2 rounded-xl transition-all border ${
+                    p.has_all_crystals 
+                      ? 'bg-teal-600 border-teal-400 text-white shadow-md shadow-teal-600/10' 
+                      : 'bg-slate-800 border-white/5 text-gray-400 hover:border-white/10 hover:bg-slate-700'
+                  }`}
+                >
+                  {p.has_all_crystals ? "💎 Crystals: Collected" : "💎 Give Cypher (Got Crystals)"}
+                </button>
+
+                {/* Toggle 2: Solved Cypher Status */}
+                <button 
+                  onClick={() => togglePlayerStatusFlag(p.id, p.has_solved_cypher, 'has_solved_cypher')}
+                  className={`text-[10px] font-black uppercase py-2 rounded-xl transition-all border ${
+                    p.has_solved_cypher 
+                      ? 'bg-amber-600 border-amber-400 text-white shadow-md shadow-amber-600/10' 
+                      : 'bg-slate-800 border-white/5 text-gray-400 hover:border-white/10 hover:bg-slate-700'
+                  }`}
+                >
+                  {p.has_solved_cypher ? "🔑 Cypher: Decoded" : "🔑 Unlock Final Riddle Video"}
+                </button>
+
               </div>
+
+              {/* Rest of administrative options panel (Force Game, Kidnap, Freeze, etc) */}
+              <div className="grid grid-cols-4 gap-1.5 mt-2">
+                <button onClick={() => triggerMinigame(p.id, (p.minigame_count || 0) + 1)} className="bg-slate-900 border border-white/5 hover:bg-emerald-600 text-[9px] font-bold uppercase py-1.5 rounded transition-all">Force Game</button>
+                <button onClick={() => toggleKidnap(p.id, p.is_kidnapped)} className="bg-slate-900 border border-white/5 hover:bg-red-600 text-[9px] font-bold uppercase py-1.5 rounded transition-all">{p.is_kidnapped ? "Release" : "Kidnap"}</button>
+                <button onClick={() => freezePlayer(p.id)} className="bg-slate-900 border border-white/5 hover:bg-purple-600 text-[9px] font-bold uppercase py-1.5 rounded transition-all">Freeze 5m</button>
+                <button onClick={() => resetPlayer(p.id)} className="bg-slate-950 border border-white/5 hover:bg-rose-900 text-[9px] font-bold uppercase py-1.5 rounded transition-all text-gray-500">Reset All</button>
+              </div>
+
             </div>
           );
         })}

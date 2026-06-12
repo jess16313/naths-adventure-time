@@ -248,16 +248,26 @@ export default function App() {
 
       {/* Dynamic Header Display Card */}
       <div className="h-[100dvh] w-full flex flex-col justify-between p-8 bg-gradient-to-b from-black/60 via-transparent to-black/80">
-        <div className="backdrop-blur-md bg-black/40 p-6 rounded-2xl max-w-sm border border-white/10 mt-10">
+        <div className="backdrop-blur-md bg-black/40 p-6 rounded-2xl max-w-sm border border-white/10 mt-10 relative overflow-hidden">
+          
+          {/* 💎 UNLOCKED TOKENS DISPLAY CORNER HUD */}
+          {completedCount >= 10 && currentRole !== 'hint giver' && (
+            <div className="absolute top-4 right-4 bg-emerald-500/10 border border-emerald-500/40 px-2 py-1 rounded-lg text-center animate-pulse">
+              <span className="text-[9px] font-mono text-emerald-400 block uppercase tracking-widest">Key Segment</span>
+              <span className="font-mono text-xs font-black text-white">XX-42</span>
+            </div>
+          )}
+
           <h1 className="text-3xl font-extrabold text-white uppercase">{playerState.player_name}</h1>
           <p className="text-xl font-medium text-slate-300 mt-1 uppercase tracking-wider italic">Character: {playerState.character_name}</p>
           <p className="text-xl font-medium text-amber-400 mt-1 uppercase tracking-wider">Role: {playerState.role}</p>
-          <div className="mt-4">
+          <div className="mt-4 flex gap-2">
             <span className="bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-sm">{completedCount} PTS</span>
           </div>
         </div>
         <div className="w-full text-center text-white/60 text-sm font-semibold tracking-widest animate-bounce mb-6">SCROLL DOWN FOR STORY ↓</div>
       </div>
+
 
       {/* Role Content Routers Box panel */}
       <div className="w-full max-w-2xl mx-auto px-6 pb-32">
@@ -268,6 +278,73 @@ export default function App() {
               <span className="text-xs text-amber-400 font-mono font-bold animate-pulse">System Hijack loop active</span>
             )}
           </div>
+            
+                    {/* ============================================================== 
+              🏁 MASTER ENDGAME SYSTEM PROGRESSION SUBMODULES
+             ============================================================== */}
+          
+          {/* TIER 1A: THE LIAR'S FAKE CYPHER (Always active for Liar profiles) */}
+          {currentRole === 'liar' && (
+            <div className="bg-rose-950/20 border border-rose-500/30 p-5 rounded-2xl space-y-3">
+              <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase text-rose-400 font-black">
+                <span>// Active Subversion Asset Loaded</span>
+                <span className="bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 text-gray-300">Fabricated Cypher</span>
+              </div>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Utilize this encrypted key layout map index sheet module to construct your cover identities. Spread this documentation as truth.
+              </p>
+              {/* 📂 Link to your Fake Cypher PDF */}
+              <a 
+                href="/assets/fake-cypher.pdf" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase py-2.5 rounded-xl transition-all shadow-md shadow-rose-600/10"
+              >
+                📄 Open Fabricated Matrix Map (PDF)
+              </a>
+            </div>
+          )}
+
+          {/* TIER 1B: THE REAL CYPHER UNLOCKED (Triggers once GM confirms they found all crystals) */}
+          {playerState.has_all_crystals && !playerState.has_solved_cypher && (
+            <div className="bg-sky-950/40 border border-sky-500/30 p-5 rounded-2xl space-y-3 animate-scaleUp">
+              <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase text-sky-400 font-black">
+                <span>// Master Encryption Core Decoupled</span>
+                <span className="bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 text-emerald-400 animate-pulse">Crystals Synchronized</span>
+              </div>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                The terminal has processed your team's extraction parameters. Decode this true grid schematic array matrix to find your ultimate bypass sequence coordinates.
+              </p>
+              {/* 📂 Link to your Real Cypher PDF */}
+              <a 
+                href="/assets/real-cypher.pdf" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block text-center bg-sky-600 hover:bg-sky-500 text-slate-950 font-black text-xs uppercase py-2.5 rounded-xl transition-all shadow-lg shadow-sky-500/10"
+              >
+                🔑 Download Authorized Diagnostic Cypher (PDF)
+              </a>
+            </div>
+          )}
+
+          {/* TIER 2: THE FINAL RIDDLE UNLOCKED (Triggers once GM updates state to solved) */}
+          {playerState.has_solved_cypher && (
+            <div className="bg-amber-500/10 border-2 border-amber-500/40 p-6 rounded-2xl space-y-4 animate-fadeIn shadow-xl shadow-amber-500/5">
+              <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase text-amber-400 font-black">
+                <span>// Ultimate Override Checklist Protocol</span>
+                <span className="bg-amber-500/20 px-2.5 py-0.5 rounded text-white font-mono font-bold animate-pulse">Phase Omega Active</span>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-md font-black text-white uppercase tracking-wide">The Endgame Conundrum Riddle:</h4>
+                <p className="text-sm text-gray-200 font-medium leading-relaxed bg-black/50 p-4 rounded-xl border border-white/5 font-mono italic">
+                  "Four thieves stole the artifacts, one liar wrapped the clock, the priest knows the pattern, the interrogator bleeds the block. Locate the hardware override mechanism switch inside the central vault hall to declare definitive server victory."
+                </p>
+              </div>
+              <div className="text-center text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+                🏆 Complete this objective task physically and present the resolution data sequence to the Game Master!
+              </div>
+            </div>
+          )}
 
           {currentRole === 'thief' && <Thief playerState={playerState} />}
           {currentRole === 'liar' && <Liar playerState={playerState} />}
