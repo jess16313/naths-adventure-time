@@ -32,17 +32,53 @@ export default function HintGiver({currentGmId}) {
     return () => supabase.removeChannel(globalChannel);
   }, []);
 
-  const updateThiefHintLevel = async (playerId, currentLevel, action) => {
-  // Calculates whether to move them forward (+1) or backward (-1)
-  let nextLevel = action === 'next' ? currentLevel + 1 : currentLevel - 1;
+const updateThiefHintLevel = async (playerId, currentLevel, action) => {
+  // 1. Force the value to a real number. If it is null or undefined, default to 1
+  let cleanLevel = currentLevel !== null && currentLevel !== undefined ? Number(currentLevel) : 1;
   
-  // Bound check safety guard: Level cannot fall below 1
+  // 2. Double check safety fallback to prevent NaN errors
+  if (isNaN(cleanLevel)) {
+    cleanLevel = 1;
+  }
+
+  // 3. Compute the next step value
+  let nextLevel = action === 'next' ? cleanLevel + 1 : cleanLevel - 1;
   if (nextLevel < 1) nextLevel = 1;
 
-  await supabase
+  console.log(`Attempting to update player ${playerId} to level:`, nextLevel);
+
+  // 4. Run the update and catch errors explicitly
+  const { error } = await supabase
     .from('player')
     .update({ thief_number: nextLevel })
     .eq('id', playerId);
+
+  if (error) {
+    console.error("Supabase Error:", error);
+    alert(`Database Error: ${error.message} \nCode: ${error.code}`);
+  } else {
+    console.log("Database updated successfully!");
+  }
+};
+
+  const initializeGlobalGameTimer = async () => {
+  // Calculate exactly 15 minutes from the exact millisecond of clicking
+  const fifteenMinutesFromNow = new Date(Date.now() + 15 * 60000).toISOString();
+
+  // Update ALL players who are actively in the game match
+  const { error } = await supabase
+    .from('player')
+    .update({ 
+      next_game_at: fifteenMinutesFromNow,
+      game_timer_status: 'waiting_initial'
+    })
+    .not('role', 'eq', 'hint giver'); // Don't give the GM minigames
+
+  if (error) {
+    alert("Failed to initialize system clock: " + error.message);
+  } else {
+    alert("🚀 Match Clock Initialized! First wave of minigames triggers in 15 minutes.");
+  }
 };
 
 
@@ -54,12 +90,27 @@ export default function HintGiver({currentGmId}) {
       .eq('id', playerId);
   };
 
-  const toggleKidnap = async (playerId, currentStatus) => {
-    await supabase
-      .from('player')
-      .update({ is_kidnapped: !currentStatus })
-      .eq('id', playerId);
-  };
+const toggleKidnap = async (playerId, currentStatus) => {
+  const isNowKidnapped = !currentStatus;
+  
+  // If they are being kidnapped, erase their game timer so games don't pop up.
+  // If they are being released, give them a fresh 10 minute countdown buffer.
+  const nextGameTime = isNowKidnapped 
+    ? null 
+    : new Date(Date.now() + 10 * 60000).toISOString();
+  
+  const timerStatus = isNowKidnapped ? 'disrupted' : 'active_countdown';
+
+  await supabase
+    .from('player')
+    .update({ 
+      is_kidnapped: isNowKidnapped,
+      next_game_at: nextGameTime,
+      game_timer_status: timerStatus
+    })
+    .eq('id', playerId);
+};
+
 
   const freezePlayer = async (playerId) => {
     // Freezes a player's interface for exactly 5 minutes
@@ -133,33 +184,78 @@ export default function HintGiver({currentGmId}) {
   <span className="text-gray-400">Bravery: <strong>{p.minigame_count || 0} PTS</strong></span>
 </div>
 
-      {/* 🔮 ADDED: SPECIAL CONTROLS PANEL FOR THIEVES ONLY */}
-      {p.role === 'thief' && (
-        <div className="mt-3 bg-black/30 p-2.5 rounded-xl border border-emerald-500/10 flex items-center justify-between">
-          <div className="text-xs">
-            <span className="text-emerald-400 font-mono font-bold uppercase tracking-wider block text-[10px]">
-              Syndicate Track Feed
-            </span>
-            <p className="text-slate-300 font-medium">
-              Current Crystal Active: <strong className="text-white font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Phase {p.thief_number || 1}</strong>
-            </p>
-          </div>
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => updateThiefHintLevel(p.id, p.thief_number || 1, 'prev')}
-              className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 text-[10px] font-black px-2 py-1 rounded-md uppercase"
-            >
-              ◀ Back
-            </button>
-            <button
-              onClick={() => updateThiefHintLevel(p.id, p.thief_number || 1, 'next')}
-              className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider"
-            >
-              Advance Hint ▶
-            </button>
-          </div>
-        </div>
-      )}
+                {/* 🔮 RESPONSIVE CONTROLS PANEL FOR THIEVES ONLY */}
+                {p.role === 'thief' && (
+                  <div className="mt-3 bg-black/30 p-3 rounded-xl border border-emerald-500/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="text-left">
+                      <span className="text-emerald-400 font-mono font-black uppercase tracking-widest block text-[9px]">
+                        Syndicate Track Feed
+                      </span>
+                      <p className="text-slate-300 font-medium text-sm mt-0.5">
+                        Current Crystal Active: <strong className="text-white font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Phase {p.thief_number || 1}</strong>
+                      </p>
+                    </div>
+                    
+                    {/* Grid forces the buttons to look balanced and be full-width on phone viewports */}
+                    <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:gap-1.5">
+                      <button
+                        onClick={() => updateThiefHintLevel(p.id, p.thief_number, 'prev')}
+                        className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 text-xs sm:text-[10px] font-black px-3 py-2 sm:py-1 rounded-md uppercase text-center transition-all border border-white/5"
+                      >
+                        ◀ Back
+                      </button>
+                      <button
+                        onClick={() => updateThiefHintLevel(p.id, p.thief_number, 'next')}
+                        className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs sm:text-[10px] font-black px-3 py-2 sm:py-1 rounded-md uppercase tracking-wider text-center transition-all shadow-md shadow-emerald-600/10"
+                      >
+                        Advance ▶
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 🛠️ SYSTEM TIME DEBUGGER CONTROLS */}
+<div className="mt-3 bg-slate-950/40 p-2.5 rounded-xl border border-dashed border-amber-500/20 flex items-center justify-between gap-2">
+  <div className="text-left text-[10px] font-mono">
+    <span className="text-amber-500 block uppercase font-bold">⏱️ Clock Debugger</span>
+    <span className="text-slate-400">
+      Target: {p.next_game_at ? new Date(p.next_game_at).toLocaleTimeString() : 'STOPPED'}
+    </span>
+  </div>
+  
+  <div className="flex gap-1">
+    {/* TEST BUTTON 1: Force game to happen instantly */}
+    <button
+      onClick={async () => {
+        // Set their database target time to 10 seconds ago so their phone triggers a game layout jump immediately
+        const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
+        await supabase
+          .from('player')
+          .update({ next_game_at: tenSecondsAgo, game_timer_status: 'active_countdown' })
+          .eq('id', p.id);
+      }}
+      className="bg-amber-600/20 hover:bg-amber-500 hover:text-slate-950 text-[9px] font-mono font-bold px-2 py-1 rounded text-amber-400 transition-all"
+    >
+      ⚡ Force Game Now
+    </button>
+
+    {/* TEST BUTTON 2: Simulate complete loop cycle */}
+    <button
+      onClick={async () => {
+        // Simulates what happens when they complete a game: sets time forward 10 minutes
+        const tenMinutesFromNow = new Date(Date.now() + 10 * 60000).toISOString();
+        await supabase
+          .from('player')
+          .update({ next_game_at: tenMinutesFromNow, game_timer_status: 'active_countdown' })
+          .eq('id', p.id);
+      }}
+      className="bg-blue-600/20 hover:bg-blue-500 text-blue-400 text-[9px] font-mono font-bold px-2 py-1 rounded transition-all"
+    >
+      ⏩ Fast-Forward 10m
+    </button>
+  </div>
+</div>
+
 
                 {/* Status Badges */}
                 <div className="flex gap-1.5">
