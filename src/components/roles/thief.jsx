@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 
-// Hardcoded array of your 4 unique sequential crystal hints
-const CRYSTAL_POOL = [
-  { level: 1, name: 'Crystal Hint 1', hint_text: 'The frozen vault holds your answer.', image_url: null },
-  { level: 2, name: 'Crystal Hint 2', hint_text: 'Look beneath the grandfather clock floorboards.', image_url: null },
-  { level: 3, name: 'Crystal Hint 3', hint_text: 'The third key resides where shadows pool.', image_url: null },
-  { level: 4, name: 'Crystal Hint 4', hint_text: 'Analyze the grid sectors marked in red on this blueprint.', image_url: '/images/map_hint_4.png' }
-];
-
 export default function Thief({ playerState }) {
   // Read the current hint progression level from the database (e.g., 1, 2, 3, or 4)
   // Default to level 1 if the value is missing or null in the DB
+  // Hardcoded array of your 4 unique sequential crystal hints
+  const CRYSTAL_POOL = [
+    { level: 1, name: 'Crystal Hint 1', hint_text: 'The frozen vault holds your answer.', image_url: null },
+    { level: 2, name: 'Crystal Hint 2', hint_text: 'Look beneath the grandfather clock floorboards.', image_url: null },
+    { level: 3, name: 'Crystal Hint 3', hint_text: 'The third key resides where shadows pool.', image_url: null },
+    { level: 4, name: 'Crystal Hint 4', hint_text: 'Analyze the grid sectors marked in red on this blueprint.', image_url: '/images/map_hint_4.png' }
+  ];
+
   const currentLevel = playerState.thief_number ? Number(playerState.thief_number) : 1;
 
   // Find the exact matching hint from our pool based on the GM's database update
@@ -25,7 +25,7 @@ export default function Thief({ playerState }) {
         <span className="text-4xl block animate-bounce">💎</span>
         <h3 className="text-xl font-bold text-emerald-400 uppercase tracking-wider">All Crystals Extracted</h3>
         <p className="text-xs text-slate-300 max-w-xs mx-auto leading-relaxed">
-          Your syndicate network confirms all energy matrix components have been secured. Awaiting further commands from the Game Master.
+          Go talk to Jake.
         </p>
       </div>
     );
