@@ -32,6 +32,20 @@ export default function HintGiver({currentGmId}) {
     return () => supabase.removeChannel(globalChannel);
   }, []);
 
+  const updateThiefHintLevel = async (playerId, currentLevel, action) => {
+  // Calculates whether to move them forward (+1) or backward (-1)
+  let nextLevel = action === 'next' ? currentLevel + 1 : currentLevel - 1;
+  
+  // Bound check safety guard: Level cannot fall below 1
+  if (nextLevel < 1) nextLevel = 1;
+
+  await supabase
+    .from('player')
+    .update({ thief_number: nextLevel })
+    .eq('id', playerId);
+};
+
+
   // 2. Administrative Database Command Hooks
   const triggerMinigame = async (playerId, levelId) => {
     await supabase
@@ -113,6 +127,39 @@ export default function HintGiver({currentGmId}) {
                     <span className="text-gray-400">Bravery: <strong>{p.minigame_count || 0} PTS</strong></span>
                   </div>
                 </div>
+                <div className="flex gap-2 mt-1 text-xs">
+  <span className="text-amber-400 font-semibold uppercase">{p.role || 'Unassigned'}</span>
+  <span className="text-gray-500">•</span>
+  <span className="text-gray-400">Bravery: <strong>{p.minigame_count || 0} PTS</strong></span>
+</div>
+
+      {/* 🔮 ADDED: SPECIAL CONTROLS PANEL FOR THIEVES ONLY */}
+      {p.role === 'thief' && (
+        <div className="mt-3 bg-black/30 p-2.5 rounded-xl border border-emerald-500/10 flex items-center justify-between">
+          <div className="text-xs">
+            <span className="text-emerald-400 font-mono font-bold uppercase tracking-wider block text-[10px]">
+              Syndicate Track Feed
+            </span>
+            <p className="text-slate-300 font-medium">
+              Current Crystal Active: <strong className="text-white font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Phase {p.thief_number || 1}</strong>
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => updateThiefHintLevel(p.id, p.thief_number || 1, 'prev')}
+              className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 text-[10px] font-black px-2 py-1 rounded-md uppercase"
+            >
+              ◀ Back
+            </button>
+            <button
+              onClick={() => updateThiefHintLevel(p.id, p.thief_number || 1, 'next')}
+              className="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider"
+            >
+              Advance Hint ▶
+            </button>
+          </div>
+        </div>
+      )}
 
                 {/* Status Badges */}
                 <div className="flex gap-1.5">
