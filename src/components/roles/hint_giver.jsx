@@ -109,6 +109,7 @@ const toggleKidnap = async (playerId, currentStatus) => {
 };
 
 
+
   const freezePlayer = async (playerId) => {
     // Freezes a player's interface for exactly 5 minutes
     const fiveMinutesFromNow = new Date(Date.now() + 5 * 60000).toISOString();
