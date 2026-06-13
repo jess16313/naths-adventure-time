@@ -1,3 +1,17 @@
+@font-face {
+  font-family: 'Redaction35';
+  src: url('/fonts/redaction-35-latin-700-normal.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Apply the custom font globally to your Tailwind template layers */
+@layer base {
+  html, body {
+    font-family: 'Redaction35', monospace, sans-serif;
+  }
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

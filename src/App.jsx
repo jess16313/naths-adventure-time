@@ -149,13 +149,13 @@ export default function App() {
           
           // 🔔 CONVERT HARD ALERTS TO SYSTEM NOTIFICATION BANNERS
           if (payload.new.is_kidnapped && !playerState?.is_kidnapped) {
-            setNotification({ message: "⚠️ TERMINAL HIJACK! You have been captured by the Kidnapper!", type: "error" });
+            setNotification({ message: "The Ice King has kidnapped you! All operations must cease until you conclude your stay at the Ice Kingdom.", type: "error" });
           } else if (!payload.new.is_kidnapped && playerState?.is_kidnapped) {
-            setNotification({ message: "🔓 Connection Restored. You have been released.", type: "success" });
+            setNotification({ message: "You have been released from the Ice Kingdom! Return to business as usual.", type: "success" });
           } else if (payload.new.current_active_minigame && !playerState?.current_active_minigame) {
-            setNotification({ message: "🎮 NEW INFILTRATION LOOP INJECTED! Access terminal code panels.", type: "info" });
+            setNotification({ message: "A new BMO minigame!! Come play!", type: "info" });
           } else if (payload.new.thief_number !== playerState?.thief_number) {
-            setNotification({ message: "💎 Mission Intel Updated. New Coordinate Sectors Logged.", type: "info" });
+            setNotification({ message: "Mission completed! On to the next challenge!", type: "info" });
           }
 
           setPlayerState(payload.new);
@@ -191,11 +191,10 @@ export default function App() {
         <div className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat opacity-10" style={{ backgroundImage: `url('/assets/default-ooo-background.png')` }} />
         <div className="max-w-sm space-y-5">
           <span className="text-6xl block animate-spin [animation-duration:4s]">⏳</span>
-          <h2 className="text-2xl font-black text-sky-400 tracking-widest uppercase">TACTICAL UPLINK STAGED</h2>
           <div className="bg-slate-900/80 border border-sky-500/20 p-5 rounded-2xl shadow-2xl font-mono text-xs text-gray-400 leading-relaxed text-left space-y-2">
-            <p className="text-emerald-400 font-bold animate-pulse">// SYSTEM: WAITING FOR STARTUP PROTOCOLS</p>
-            <p>Your terminal credentials are verified. The Game Master has initialized your 15-minute synchronization timer buffer.</p>
-            <p className="text-[10px] text-gray-500 pt-2 border-t border-white/5">Stay on this terminal node. Active riddle blueprints and minigame loops will stream down automatically when the countdown hits zero.</p>
+            <p className="text-emerald-400 font-bold animate-pulse">SYSTEM: WAITING FOR STARTUP PROTOCOLS</p>
+            <p>Log in successful!</p>
+            <p className="text-[10px] text-gray-500 pt-2 border-t border-white/5">Keep the app open as long as you can, or else you'll miss something big...</p>
           </div>
         </div>
       </div>
@@ -208,7 +207,7 @@ export default function App() {
       <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center select-none overflow-hidden animate-fadeIn">
         <div className="max-w-sm space-y-6 animate-pulse">
           <span className="text-8xl block filter drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]">👺</span>
-          <h2 className="text-3xl font-black text-rose-500 uppercase tracking-widest">TERMINAL HIJACKED</h2>
+          <h2 className="text-3xl font-black text-rose-500 uppercase tracking-widest">You've been kidnapped!</h2>
           <div className="bg-slate-950/80 border border-rose-500/20 rounded-2xl p-6 shadow-2xl space-y-4">
             <p className="font-mono text-[10px] text-rose-400 font-black uppercase tracking-widest">// Neural Link Captured //</p>
             <p className="text-sm text-gray-300 leading-relaxed">Your device link has been isolated and frozen in the Nightosphere. Your active game timers and module pipelines are entirely suspended.</p>
@@ -246,28 +245,52 @@ export default function App() {
         </div>
       )}
 
-      {/* Dynamic Header Display Card */}
-      <div className="h-[100dvh] w-full flex flex-col justify-between p-8 bg-gradient-to-b from-black/60 via-transparent to-black/80">
-        <div className="backdrop-blur-md bg-black/40 p-6 rounded-2xl max-w-sm border border-white/10 mt-10 relative overflow-hidden">
+      <div className="h-[100dvh] w-full flex flex-col justify-between p-8 font-['Redaction35',_monospace]">
+        
+        {/* Themed Profile Status Terminal */}
+        <div className="backdrop-blur-md bg-black/40 p-6 rounded-2xl max-w-sm border border-white/10 mt-10 relative overflow-hidden flex flex-col justify-between space-y-4">
           
-          {/* 💎 UNLOCKED TOKENS DISPLAY CORNER HUD */}
+          {/* Unlocked Combination Hud */}
           {completedCount >= 10 && currentRole !== 'hint giver' && (
             <div className="absolute top-4 right-4 bg-emerald-500/10 border border-emerald-500/40 px-2 py-1 rounded-lg text-center animate-pulse">
-              <span className="text-[9px] font-mono text-emerald-400 block uppercase tracking-widest">Key Segment</span>
+              <span className="text-[9px] font-mono text-emerald-400 block uppercase tracking-widest">Key</span>
               <span className="font-mono text-xs font-black text-white">XX-42</span>
             </div>
           )}
 
-          <h1 className="text-3xl font-extrabold text-white uppercase">{playerState.player_name}</h1>
-          <p className="text-xl font-medium text-slate-300 mt-1 uppercase tracking-wider italic">Character: {playerState.character_name}</p>
-          <p className="text-xl font-medium text-amber-400 mt-1 uppercase tracking-wider">Role: {playerState.role}</p>
-          <div className="mt-4 flex gap-2">
-            <span className="bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-sm">{completedCount} PTS</span>
+          {/* Main Account Metrics */}
+          <div className="space-y-1">
+            <h1 className="text-3xl font-extrabold text-white uppercase tracking-wide">{playerState.player_name}</h1>
+            <p className="text-xl font-medium text-slate-300 uppercase tracking-wider italic">Character: {playerState.character_name}</p>
+            <p className="text-xl font-medium text-amber-400 uppercase tracking-wider">Role: {playerState.role}</p>
+            <div className="pt-2">
+              <span className="bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-sm">{completedCount} PTS</span>
+            </div>
           </div>
-        </div>
-        <div className="w-full text-center text-white/60 text-sm font-semibold tracking-widest animate-bounce mb-6">SCROLL DOWN FOR STORY ↓</div>
-      </div>
 
+          {/* 📜 NEW MODULE: CHARACTER INTEL & DESCRIPTION BLURB PANEL */}
+          <div className="bg-black/30 border border-white/5 p-3.5 rounded-xl space-y-1.5 text-left">
+            <span className="text-[9px] font-mono text-amber-400/80 font-bold uppercase tracking-widest block">// Character Dossier Intel</span>
+            <p className="text-xs text-gray-300 leading-relaxed font-mono">
+              {playerState.character_description || "Awaiting character profile data synchronization from central database mainframe..."}
+            </p>
+          </div>
+
+          {/* 🚪 FIX 2: Transparent red background logout button */}
+          <button 
+            onClick={() => { localStorage.removeItem('ooo_party_session'); window.location.reload(); }} 
+            className="self-start text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all duration-300 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/50 hover:text-rose-300"
+          >
+            [ Disconnect Terminal ]
+          </button>
+
+        </div>
+
+        {/* Scroll Prompt Footbar */}
+        <div className="w-full text-center text-white/60 text-sm font-semibold tracking-widest animate-bounce mb-6">
+          ↓ SCROLL DOWN FOR MISSION ↓
+        </div>
+      </div>
 
       {/* Role Content Routers Box panel */}
       <div className="w-full max-w-2xl mx-auto px-6 pb-32">
@@ -326,21 +349,41 @@ export default function App() {
               </a>
             </div>
           )}
-
           {/* TIER 2: THE FINAL RIDDLE UNLOCKED (Triggers once GM updates state to solved) */}
           {playerState.has_solved_cypher && (
-            <div className="bg-amber-500/10 border-2 border-amber-500/40 p-6 rounded-2xl space-y-4 animate-fadeIn shadow-xl shadow-amber-500/5">
+            <div className="bg-amber-500/10 border-2 border-amber-500/40 p-6 rounded-2xl space-y-5 landed-card animate-fadeIn shadow-xl shadow-amber-500/5">
               <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase text-amber-400 font-black">
                 <span>// Ultimate Override Checklist Protocol</span>
                 <span className="bg-amber-500/20 px-2.5 py-0.5 rounded text-white font-mono font-bold animate-pulse">Phase Omega Active</span>
               </div>
+              
+              {/* Text Riddle Component */}
               <div className="space-y-2">
                 <h4 className="text-md font-black text-white uppercase tracking-wide">The Endgame Conundrum Riddle:</h4>
                 <p className="text-sm text-gray-200 font-medium leading-relaxed bg-black/50 p-4 rounded-xl border border-white/5 font-mono italic">
                   "Four thieves stole the artifacts, one liar wrapped the clock, the priest knows the pattern, the interrogator bleeds the block. Locate the hardware override mechanism switch inside the central vault hall to declare definitive server victory."
                 </p>
               </div>
-              <div className="text-center text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+
+              {/* 🎬 INTUITIVE EMBEDDED VIDEO MEDIA LOADER */}
+              <div className="space-y-2 pt-2 border-t border-white/5">
+                <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider block">
+                  Intercepted Videographic Intel Playback:
+                </span>
+                <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black shadow-inner aspect-video">
+                  <video 
+                    className="w-full h-full object-cover"
+                    src="/assets/final-riddle-video.mp4" // Links directly to your public asset folder location
+                    controls // Adds native play, pause, volume sliders for mobile screens
+                    playsInline // Crucial for mobile: stops iOS safari from forcing full-screen default players
+                    preload="metadata" // Optimizes loading so phones don't waste data buffering instantly
+                  >
+                    Your diagnostic browser environment does not support native video streaming elements.
+                  </video>
+                </div>
+              </div>
+
+              <div className="text-center text-[10px] font-mono text-gray-500 uppercase tracking-widest pt-2">
                 🏆 Complete this objective task physically and present the resolution data sequence to the Game Master!
               </div>
             </div>
