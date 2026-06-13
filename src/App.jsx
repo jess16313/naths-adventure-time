@@ -178,9 +178,9 @@ export default function App() {
     );
   }
 
-  if (loading && !playerState) return <div className="text-white text-center mt-20 font-mono text-xs tracking-widest animate-pulse">Decoding Profile Sync...</div>;
+  if (loading && !playerState) return <div className="text-white text-center mt-20 font-mono text-xs tracking-widest animate-pulse">Logging In...</div>;
   if (dbError) return <div className="text-red-400 text-center mt-20 font-mono text-sm">💥 Connection Failed: {dbError}</div>;
-  if (!playerState) return <div className="text-amber-400 text-center mt-20 font-mono text-xs tracking-widest">🕵️‍♂️ Connecting Terminal Node to Matrix...</div>;
+  if (!playerState) return <div className="text-amber-400 text-center mt-20 font-mono text-xs tracking-widest">Connecting to Database...</div>;
 
   const currentRole = playerState.role?.toLowerCase();
 
@@ -207,11 +207,9 @@ export default function App() {
       <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center select-none overflow-hidden animate-fadeIn">
         <div className="max-w-sm space-y-6 animate-pulse">
           <span className="text-8xl block filter drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]">👺</span>
-          <h2 className="text-3xl font-black text-rose-500 uppercase tracking-widest">You've been kidnapped!</h2>
+          <h2 className="text-3xl font-black text-rose-500 uppercase tracking-widest">You've been kidnapped by the Ice King!</h2>
           <div className="bg-slate-950/80 border border-rose-500/20 rounded-2xl p-6 shadow-2xl space-y-4">
-            <p className="font-mono text-[10px] text-rose-400 font-black uppercase tracking-widest">// Neural Link Captured //</p>
-            <p className="text-sm text-gray-300 leading-relaxed">Your device link has been isolated and frozen in the Nightosphere. Your active game timers and module pipelines are entirely suspended.</p>
-            <p className="text-xs text-gray-400 italic pt-2 border-t border-white/5">Acknowledge your captor physically. Await authorization protocols from the Kidnapper interface to release this terminal cluster.</p>
+            <p className="text-sm text-gray-300 leading-relaxed">You must go downstairs to the Ice Kingdom until he is done with you.</p>
           </div>
         </div>
       </div>
@@ -254,7 +252,7 @@ export default function App() {
           {completedCount >= 10 && currentRole !== 'hint giver' && (
             <div className="absolute top-4 right-4 bg-emerald-500/10 border border-emerald-500/40 px-2 py-1 rounded-lg text-center animate-pulse">
               <span className="text-[9px] font-mono text-emerald-400 block uppercase tracking-widest">Key</span>
-              <span className="font-mono text-xs font-black text-white">XX-42</span>
+              <span className="font-mono text-xs font-black text-white">7 3 _ _</span>
             </div>
           )}
 
@@ -264,13 +262,12 @@ export default function App() {
             <p className="text-xl font-medium text-slate-300 uppercase tracking-wider italic">Character: {playerState.character_name}</p>
             <p className="text-xl font-medium text-amber-400 uppercase tracking-wider">Role: {playerState.role}</p>
             <div className="pt-2">
-              <span className="bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-sm">{completedCount} PTS</span>
+              <span className="bg-amber-500 text-slate-900 px-2.5 py-0.5 rounded-full font-bold text-sm">{completedCount} BRAVERY PTS: {playerState.bravery_points}</span>
             </div>
           </div>
 
           {/* 📜 NEW MODULE: CHARACTER INTEL & DESCRIPTION BLURB PANEL */}
           <div className="bg-black/30 border border-white/5 p-3.5 rounded-xl space-y-1.5 text-left">
-            <span className="text-[9px] font-mono text-amber-400/80 font-bold uppercase tracking-widest block">// Character Dossier Intel</span>
             <p className="text-xs text-gray-300 leading-relaxed font-mono">
               {playerState.character_description || "Awaiting character profile data synchronization from central database mainframe..."}
             </p>
@@ -281,14 +278,14 @@ export default function App() {
             onClick={() => { localStorage.removeItem('ooo_party_session'); window.location.reload(); }} 
             className="self-start text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all duration-300 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/50 hover:text-rose-300"
           >
-            [ Disconnect Terminal ]
+            [ Log Out ]
           </button>
 
         </div>
 
         {/* Scroll Prompt Footbar */}
         <div className="w-full text-center text-white/60 text-sm font-semibold tracking-widest animate-bounce mb-6">
-          ↓ SCROLL DOWN FOR MISSION ↓
+          ↓ SCROLL DOWN TO GET STARTED↓
         </div>
       </div>
 
@@ -298,32 +295,25 @@ export default function App() {
           <div className="border-b border-white/10 pb-4 flex justify-between items-center">
             <h2 className="text-2xl font-black text-white uppercase tracking-wider">Your Mission</h2>
             {currentRole !== 'hint giver' && (
-              <span className="text-xs text-amber-400 font-mono font-bold animate-pulse">System Hijack loop active</span>
+              <span className="text-xs text-amber-400 font-mono font-bold animate-pulse">LET'S GET THIS PARTY STARTED</span>
             )}
           </div>
-            
-                    {/* ============================================================== 
-              🏁 MASTER ENDGAME SYSTEM PROGRESSION SUBMODULES
-             ============================================================== */}
-          
-          {/* TIER 1A: THE LIAR'S FAKE CYPHER (Always active for Liar profiles) */}
+
           {currentRole === 'liar' && (
             <div className="bg-rose-950/20 border border-rose-500/30 p-5 rounded-2xl space-y-3">
               <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase text-rose-400 font-black">
-                <span>// Active Subversion Asset Loaded</span>
-                <span className="bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 text-gray-300">Fabricated Cypher</span>
+                <span className="bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 text-gray-300">Cypher [?] </span>
               </div>
               <p className="text-xs text-gray-300 leading-relaxed">
-                Utilize this encrypted key layout map index sheet module to construct your cover identities. Spread this documentation as truth.
+                Hmm... what does this do? It looks important. You should share this with others when you make important discoveries.
               </p>
-              {/* 📂 Link to your Fake Cypher PDF */}
               <a 
                 href="/assets/fake-cypher.pdf" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="block text-center bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase py-2.5 rounded-xl transition-all shadow-md shadow-rose-600/10"
               >
-                📄 Open Fabricated Matrix Map (PDF)
+                Open the Mysterious Cypher (PDF)
               </a>
             </div>
           )}
@@ -332,12 +322,9 @@ export default function App() {
           {playerState.has_all_crystals && !playerState.has_solved_cypher && (
             <div className="bg-sky-950/40 border border-sky-500/30 p-5 rounded-2xl space-y-3 animate-scaleUp">
               <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase text-sky-400 font-black">
-                <span>// Master Encryption Core Decoupled</span>
-                <span className="bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 text-emerald-400 animate-pulse">Crystals Synchronized</span>
+                <span>Who could it be?</span>
+                <span className="bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 text-emerald-400 animate-pulse">Decode the puzzle below to see!</span>
               </div>
-              <p className="text-xs text-gray-300 leading-relaxed">
-                The terminal has processed your team's extraction parameters. Decode this true grid schematic array matrix to find your ultimate bypass sequence coordinates.
-              </p>
               {/* 📂 Link to your Real Cypher PDF */}
               <a 
                 href="/assets/real-cypher.pdf" 
@@ -345,23 +332,22 @@ export default function App() {
                 rel="noopener noreferrer"
                 className="block text-center bg-sky-600 hover:bg-sky-500 text-slate-950 font-black text-xs uppercase py-2.5 rounded-xl transition-all shadow-lg shadow-sky-500/10"
               >
-                🔑 Download Authorized Diagnostic Cypher (PDF)
+                🔑 Download Final Riddle Cypher (PDF)
               </a>
             </div>
           )}
-          {/* TIER 2: THE FINAL RIDDLE UNLOCKED (Triggers once GM updates state to solved) */}
           {playerState.has_solved_cypher && (
             <div className="bg-amber-500/10 border-2 border-amber-500/40 p-6 rounded-2xl space-y-5 landed-card animate-fadeIn shadow-xl shadow-amber-500/5">
               <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase text-amber-400 font-black">
-                <span>// Ultimate Override Checklist Protocol</span>
-                <span className="bg-amber-500/20 px-2.5 py-0.5 rounded text-white font-mono font-bold animate-pulse">Phase Omega Active</span>
+                <span>Onto the last riddle!</span>
+                <span className="bg-amber-500/20 px-2.5 py-0.5 rounded text-white font-mono font-bold animate-pulse">You're Almost There!</span>
               </div>
               
               {/* Text Riddle Component */}
               <div className="space-y-2">
                 <h4 className="text-md font-black text-white uppercase tracking-wide">The Endgame Conundrum Riddle:</h4>
                 <p className="text-sm text-gray-200 font-medium leading-relaxed bg-black/50 p-4 rounded-xl border border-white/5 font-mono italic">
-                  "Four thieves stole the artifacts, one liar wrapped the clock, the priest knows the pattern, the interrogator bleeds the block. Locate the hardware override mechanism switch inside the central vault hall to declare definitive server victory."
+                  "The answer that stems from the riddle yet told, provides the rest of the tuth that you hold. Take the numbers you know to be true, and put them before the ones that are new! Once you've got it talk to Finn. Do all this and you will curely win!"
                 </p>
               </div>
 
@@ -381,10 +367,6 @@ export default function App() {
                     Your diagnostic browser environment does not support native video streaming elements.
                   </video>
                 </div>
-              </div>
-
-              <div className="text-center text-[10px] font-mono text-gray-500 uppercase tracking-widest pt-2">
-                🏆 Complete this objective task physically and present the resolution data sequence to the Game Master!
               </div>
             </div>
           )}
@@ -410,12 +392,12 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-6">
           <div className="w-full max-w-sm border-4 border-amber-500/30 bg-slate-900 rounded-3xl p-8 shadow-2xl text-center space-y-4 animate-fadeIn">
             <span className="text-6xl block animate-bounce">🏆</span>
-            <h3 className="text-3xl font-black text-amber-400 tracking-widest uppercase">CORE OVERRIDE</h3>
-            <p className="text-xs text-emerald-400 font-bold uppercase tracking-wide">All Cooldown Modules Settled!</p>
+            <h3 className="text-3xl font-black text-amber-400 tracking-widest uppercase">YOU'VE DONE IT!</h3>
+            <p className="text-xs text-emerald-400 font-bold uppercase tracking-wide">All Bravery Points earned</p>
             <div className="bg-slate-950/60 border border-white/5 p-4 rounded-xl text-left mt-2 space-y-1">
-              <span className="font-mono text-[10px] text-amber-300 font-bold block uppercase tracking-wider">%F0%9F%94%93 Vault Token Segment Decoded:</span>
-              <p className="text-xs text-gray-300 leading-relaxed">You have proved your core capability. Here are the last two numbers of your four-digit final combinations key:</p>
-              <p className="font-mono text-3xl text-center text-emerald-400 tracking-widest bg-black/80 py-3 rounded-xl border border-emerald-500/20 font-black mt-2"> XX-42 </p>
+              <span className="font-mono text-[10px] text-amber-300 font-bold block uppercase tracking-wider">Partial Final Code Reveal!</span>
+              <p className="text-xs text-gray-300 leading-relaxed">You have proved your strength and commitment to the task! Here are the first two numbers of your four-digit final combinations key:</p>
+              <p className="font-mono text-3xl text-center text-emerald-400 tracking-widest bg-black/80 py-3 rounded-xl border border-emerald-500/20 font-black mt-2"> 7 3 _ _ </p>
             </div>
             <button onClick={() => setShowVictoryModal(false)} className="mt-2 w-full bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black py-3 rounded-xl uppercase tracking-widest text-xs transition-all shadow-lg shadow-amber-500/10" > Close </button>
           </div>

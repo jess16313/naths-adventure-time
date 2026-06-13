@@ -12,9 +12,9 @@ export default function Interrogator({ completedCount }) {
   const [secretsCount, setSecretsCount] = useState(0);
 
   // 🧠 CHANGED: Formatted tracking thresholds accurately for levels 3 and 7
-  const interrogationsEarned = completedCount >= 7 ? 2 : completedCount >= 3 ? 1 : 0;
+  const interrogationsEarned = completedCount >= 8 ? 2 : completedCount >= 4 ? 1 : 0;
 
-  // Primary operational data engine query fetcher
+
   const fetchGameTelemetry = async () => {
     let { data } = await supabase
       .from('player')
@@ -81,7 +81,7 @@ export default function Interrogator({ completedCount }) {
 
   const executeSabotage = async (targetId, currentPoints) => {
     if (sabotageSpent >= totalSabotageBank) {
-      alert("Operational Block: Your maximum threshold of 7 sabotage points has been fully consumed!");
+      alert("Operational Block: You've used all your manipulation tactics. Now focus on solving riddles!");
       return;
     }
     if (currentPoints <= 0) return;
@@ -130,7 +130,7 @@ export default function Interrogator({ completedCount }) {
             {secretsCount} / {interrogationsEarned} Actions Executed
           </span>
           <p className="text-[10px] text-gray-500 mt-1 font-mono">
-            Earned automatically at Levels 3 and 7 (Your Level: {completedCount})
+            Earned automatically at Levels 4 and 8 (Your Level: {completedCount})
           </p>
         </div>
         <span className={`text-xs font-mono px-2.5 py-1 rounded-full font-bold uppercase ${interrogationsEarned > secretsCount ? 'bg-sky-500 text-slate-950 animate-pulse' : 'bg-slate-800 text-gray-500'}`}>
@@ -140,7 +140,7 @@ export default function Interrogator({ completedCount }) {
 
       {/* TARGET LIST CONTAINER STACK */}
       <div className="space-y-3">
-        <h4 className="text-xs font-mono font-bold text-gray-400 uppercase tracking-widest border-b border-white/5 pb-1">Target Assessment Feed</h4>
+        <h4 className="text-xs font-mono font-bold text-gray-400 uppercase tracking-widest border-b border-white/5 pb-1">Player Assessment Feed</h4>
         {players.map((p) => {
           const roleLower = p.role?.toLowerCase();
           if (roleLower === 'interrogator' || roleLower === 'hint giver') return null;
@@ -160,15 +160,14 @@ export default function Interrogator({ completedCount }) {
                   onClick={() => handleSecretInterrogation(p)} 
                   className="flex-1 sm:flex-none bg-sky-600 hover:bg-sky-500 disabled:opacity-20 disabled:hover:bg-sky-600 text-slate-950 text-[10px] font-black uppercase tracking-wider px-3 py-2 rounded-lg transition-all"
                 >
-                  🔍 Assess Role
+                  Uncover Player Role
                 </button>
-                {/* SABOTAGE POINT DEDUCTION ACTION TRIGGER BUTTON */}
                 <button 
                   disabled={sabotageSpent >= totalSabotageBank || (p.minigame_count || 0) <= 0} 
                   onClick={() => executeSabotage(p.id, p.minigame_count || 0)} 
                   className="flex-1 sm:flex-none bg-rose-600 hover:bg-rose-500 disabled:opacity-20 disabled:hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider px-3 py-2 rounded-lg transition-all"
                 >
-                  💥 Siphon -1 PT
+                  Remove -1 PT
                 </button>
               </div>
             </div>
@@ -180,10 +179,9 @@ export default function Interrogator({ completedCount }) {
       {selectedPlayer && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-6">
           <div className="w-full max-w-xs border-2 border-sky-500/30 bg-slate-900 rounded-3xl p-6 text-center shadow-2xl space-y-4 animate-scaleUp">
-            <span className="text-5xl block">🕵️‍♂️</span>
-            <h4 className="text-xl font-black text-sky-400 tracking-wider uppercase">INTELLIGENCE LOGGED</h4>
+            <h4 className="text-xl font-black text-sky-400 tracking-wider uppercase">SECRET KNOWLEDGE CHAMBER</h4>
             <div className="bg-slate-950 p-4 rounded-xl border border-white/5 space-y-1">
-              <span className="text-[10px] text-gray-500 font-mono block uppercase">Identity Profile Snapshot:</span>
+              <span className="text-[10px] text-gray-500 font-mono block uppercase">Identity Profile :</span>
               <p className="text-white text-lg font-bold tracking-wide uppercase">{selectedPlayer.character_name}</p>
               <span className="text-xs font-black bg-amber-500/10 text-amber-400 px-3 py-0.5 rounded-full inline-block uppercase tracking-widest mt-1"> 
                 True Role: {selectedPlayer.role || 'Unassigned'} 

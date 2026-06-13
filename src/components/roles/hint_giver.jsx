@@ -47,31 +47,37 @@ export default function HintGiver({ currentGmId }) {
     }
   };
 
-  // ⏳ INITIALIZE GLOBAL CLOCK PROTOCOL
   const initializeGlobalGameTimer = async () => {
     // Calculate exactly 15 minutes from the exact millisecond of clicking
     const fifteenMinutesFromNow = new Date(Date.now() + 15 * 60000).toISOString();
 
-    // 1. First update the GM profile row itself so it has a reference point
-    await supabase
-      .from('player')
-      .update({ game_timer_status: 'active' })
-      .eq('id', currentGmId);
+    try {
+      // 1. First update the GM profile row itself so it has a reference point
+      await supabase
+        .from('player')
+        .update({ game_timer_status: 'active' })
+        .eq('id', currentGmId);
 
-    // 2. Set the countdown anchor points for ALL players
-    const { error } = await supabase
-      .from('player')
-      .update({ 
-        next_game_at: fifteenMinutesFromNow, 
-        game_timer_status: 'waiting_initial' 
-      });
+      // 2. 🛠️ FIXED: Target rows where the ID is greater than 0. 
+      // This satisfies Supabase's "WHERE clause" requirement while still applying it to everyone!
+      const { error } = await supabase
+        .from('player')
+        .update({ 
+          next_game_at: fifteenMinutesFromNow, 
+          game_timer_status: 'waiting_initial' 
+        })
+        .gt('id', 0); // Triggers a safe "where id > 0" filter matching all valid database records
 
-    if (error) {
-      alert("Failed to initialize system clock: " + error.message);
-    } else {
-      alert("🚀 Master Match Clock Initialized! First wave of minigames triggers in exactly 15 minutes.");
+      if (error) {
+        alert("Failed to initialize system clock: " + error.message);
+      } else {
+        alert("🚀 Master Match Clock Initialized! First wave of minigames triggers in exactly 15 minutes.");
+      }
+    } catch (err) {
+      alert("System Exception: " + err.message);
     }
   };
+
 
   const togglePlayerStatusFlag = async (playerId, currentStatus, columnName) => {
     try {
